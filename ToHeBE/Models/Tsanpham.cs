@@ -31,7 +31,7 @@ namespace ToHeBE.Models
         public int SLtonKho { get; set; }
         [Column("anhSP")]
         [StringLength(150)]
-        public string? AnhSp { get; set; } 
+        public string? AnhSp { get; set; }
         [Column("moTaSP")]
         [StringLength(100)]
         public string? MoTaSp { get; set; }
