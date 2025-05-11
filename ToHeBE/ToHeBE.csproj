@@ -23,4 +23,8 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="6.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\assets\images\" />
+  </ItemGroup>
+
 </Project>

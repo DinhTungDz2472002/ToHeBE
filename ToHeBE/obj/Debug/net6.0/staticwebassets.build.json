@@ -1,11 +1,19 @@
 {
   "Version": 1,
-  "Hash": "mJw8lXgyjqV1bJ8F78ZjrYzfUrIru3zxbLA6N0sRl9c=",
+  "Hash": "Q9kAxTj/issdyZrbwtUAud17E5BhXlyaKPyUDopqC4A=",
   "Source": "ToHeBE",
   "BasePath": "_content/ToHeBE",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
-  "DiscoveryPatterns": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "ToHeBE\\wwwroot",
+      "Source": "ToHeBE",
+      "ContentRoot": "D:\\HK2_4\\ToHeBE\\ToHeBE\\wwwroot\\",
+      "BasePath": "_content/ToHeBE",
+      "Pattern": "**"
+    }
+  ],
   "Assets": []
 }

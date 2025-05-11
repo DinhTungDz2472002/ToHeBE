@@ -31,14 +31,17 @@ namespace ToHeBE.Models
         public int SLtonKho { get; set; }
         [Column("anhSP")]
         [StringLength(150)]
-        public string? AnhSp { get; set; }
+        public string? AnhSp { get; set; } 
         [Column("moTaSP")]
         [StringLength(100)]
         public string? MoTaSp { get; set; }
         [Column("ngayThemSP", TypeName = "datetime")]
         public DateTime? NgayThemSp { get; set; }
+		[Column("Status")]
+		public bool Status { get; set; } = true;
 
-        [ForeignKey(nameof(MaLoai))]
+
+		[ForeignKey(nameof(MaLoai))]
         [InverseProperty(nameof(Tloai.Tsanphams))]
 
         public virtual Tloai MaLoaiNavigation { get; set; } = null!;
