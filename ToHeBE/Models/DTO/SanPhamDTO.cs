@@ -27,6 +27,6 @@ namespace ToHeBE.Models.DTO
 		public DateTime? NgayThemSp { get; set; }
 		[Column("Status")]
 		public bool Status { get; set; } = true;
-
-	}
+		/*public IFormFile file {get;set;}*/
+}
 }

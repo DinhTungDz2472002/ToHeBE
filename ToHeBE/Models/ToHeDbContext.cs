@@ -22,9 +22,10 @@ namespace ToHeBE.Models
         public virtual DbSet<TchitietSp> TchitietSps { get; set; } = null!;
         public virtual DbSet<Tchitiethdb> Tchitiethdbs { get; set; } = null!;
         public virtual DbSet<Tchucvu> Tchucvus { get; set; } = null!;
-        public virtual DbSet<Tdanhgia> Tdanngias { get; set; } = null!;
+        public virtual DbSet<Tdanhgia> Tdanhgias { get; set; } = null!;
         public virtual DbSet<Tgiohang> Tgiohangs { get; set; } = null!;
-        public virtual DbSet<Thdb> Thdbs { get; set; } = null!;
+        public virtual DbSet<Tchitietgiohang> Tchitietgiohangs { get; set; } = null!;
+		public virtual DbSet<Thdb> Thdbs { get; set; } = null!;
         public virtual DbSet<Tkhachhang> Tkhachhangs { get; set; } = null!;
         public virtual DbSet<Tloai> Tloais { get; set; } = null!;
         public virtual DbSet<Tmau> Tmaus { get; set; } = null!;
@@ -128,25 +129,58 @@ namespace ToHeBE.Models
                     .HasConstraintName("FK__tdanngia__maSanP__66603565");
             });
 
-            modelBuilder.Entity<Tgiohang>(entity =>
-            {
-                entity.HasKey(e => e.MaGioHang)
-                    .HasName("PK__tgiohang__2C76D2039C18825B");
+			modelBuilder.Entity<Tgiohang>(entity =>
+			{
+				entity.HasKey(e => e.MaGioHang)
+					.HasName("PK__tgiohang__2C76D2039C18825B");
 
-                entity.HasOne(d => d.MaKhachHangNavigation)
-                    .WithMany(p => p.Tgiohangs)
-                    .HasForeignKey(d => d.MaKhachHang)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__tgiohang__maKhac__72C60C4A");
+				entity.Property(e => e.MaGioHang)
+					.ValueGeneratedOnAdd(); // Tự động tăng
 
-                entity.HasOne(d => d.MaSanPhamNavigation)
-                    .WithMany(p => p.Tgiohangs)
-                    .HasForeignKey(d => d.MaSanPham)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__tgiohang__maSanP__73BA3083");
-            });
+				entity.Property(e => e.MaKhachHang)
+					.IsRequired(); // Bắt buộc
 
-            modelBuilder.Entity<Thdb>(entity =>
+				entity.Property(e => e.NgayTao)
+					.HasDefaultValueSql("GETDATE()"); // Mặc định GETDATE()
+
+				entity.HasOne(d => d.MaKhachHangNavigation)
+					.WithMany(p => p.Tgiohangs)
+					.HasForeignKey(d => d.MaKhachHang)
+					.OnDelete(DeleteBehavior.Cascade) // Sửa từ ClientSetNull thành Cascade
+					.HasConstraintName("FK__tgiohang__maKhac__72C60C4A");
+			});
+
+			modelBuilder.Entity<Tchitietgiohang>(entity =>
+			{
+				entity.HasKey(e => e.MaChiTietGH)
+					.HasName("PK__tchitietgiohang__<tên khóa chính>"); // Thay <tên khóa chính> bằng tên thực tế nếu có
+
+				entity.Property(e => e.MaChiTietGH)
+					.ValueGeneratedOnAdd(); // Tự động tăng
+
+				entity.Property(e => e.MaGioHang)
+					.IsRequired(); // Bắt buộc
+
+				entity.Property(e => e.MaSanPham)
+					.IsRequired(); // Bắt buộc
+
+				entity.Property(e => e.SlSP)
+					.IsRequired() // Bắt buộc
+					.HasAnnotation("CheckConstraint", "slSP > 0"); // Ràng buộc slSP > 0
+
+				entity.HasOne(d => d.MaGioHangNavigation)
+					.WithMany(p => p.Tchitietgiohangs)
+					.HasForeignKey(d => d.MaGioHang)
+					.OnDelete(DeleteBehavior.Cascade)
+					.HasConstraintName("FK__tchitietgiohang__maGioHang__<tên khóa ngoại>"); // Thay <tên khóa ngoại> bằng tên thực tế
+
+				entity.HasOne(d => d.MaSanPhamNavigation)
+					.WithMany(p => p.Tchitietgiohangs)
+					.HasForeignKey(d => d.MaSanPham)
+					.OnDelete(DeleteBehavior.Cascade)
+					.HasConstraintName("FK__tchitietgiohang__maSanPham__<tên khóa ngoại>"); // Thay <tên khóa ngoại> bằng tên thực tế
+			});
+			modelBuilder.Entity<Thdb>(entity =>
             {
                 entity.HasKey(e => e.MaHdb)
                     .HasName("PK__thdb__2CC85AC5008907A9");
