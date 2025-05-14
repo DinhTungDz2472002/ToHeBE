@@ -7,7 +7,6 @@ public class Tchitietgiohang
 	public int MaSanPham { get; set; }
 	public int SlSP { get; set; }
 	public double? DonGia { get; set; }
-
 	public Tgiohang MaGioHangNavigation { get; set; }
 	public Tsanpham MaSanPhamNavigation { get; set; }
 }

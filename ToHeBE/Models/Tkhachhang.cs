@@ -29,7 +29,7 @@ namespace ToHeBE.Models
         public string Username { get; set; } = null!;
         [Column("gioiTinh")]
         [StringLength(10)]
-        public string GioiTinh { get; set; } = null!;
+        public string? GioiTinh { get; set; }
         [Column("diaChi")]
         [StringLength(150)]
         public string DiaChi { get; set; } = null!;
@@ -42,7 +42,11 @@ namespace ToHeBE.Models
         [StringLength(100)]
         public string? GhiChu { get; set; }
 
-        [InverseProperty(nameof(Tdanhgia.MaKhachHangNavigation))]
+		[Required]
+		[StringLength(256)]
+		public string Password { get; set; }
+
+	[InverseProperty(nameof(Tdanhgia.MaKhachHangNavigation))]
         public virtual ICollection<Tdanhgia> Tdanhgias { get; set; }
         [InverseProperty(nameof(Tgiohang.MaKhachHangNavigation))]
         public virtual ICollection<Tgiohang> Tgiohangs { get; set; }
