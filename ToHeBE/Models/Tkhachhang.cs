@@ -32,15 +32,14 @@ namespace ToHeBE.Models
         public string? GioiTinh { get; set; }
         [Column("diaChi")]
         [StringLength(150)]
-        public string DiaChi { get; set; } = null!;
+        public string? DiaChi { get; set; }
         [Column("SDT")]
         [StringLength(45)]
-        public string Sdt { get; set; } = null!;
-        [StringLength(100)]
-        public string? Email { get; set; }
-        [Column("ghiChu")]
-        [StringLength(100)]
-        public string? GhiChu { get; set; }
+        public string Sdt { get; set; }
+
+		[Column("Email")]
+		[StringLength(100)]
+		public string? Email { get; set; }
 
 		[Required]
 		[StringLength(256)]
