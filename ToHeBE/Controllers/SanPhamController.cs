@@ -119,7 +119,7 @@ namespace ToHeBE.Controllers
 
 			return Ok(dto);
 		}
-		// 4. Thêm mới sản phẩm (mặc định Status = true)
+		/*// 4. Thêm mới sản phẩm (mặc định Status = true)
 		[HttpPost]
 		[Route("/SanPham/Create")]
 		public async Task<IActionResult> Create([FromBody] SanPhamDTO dto)
@@ -143,9 +143,72 @@ namespace ToHeBE.Controllers
 			dto.Status = true;
 
 			return Ok(dto);
+		}*/
+
+/*thêm*/
+		[HttpPost]
+		[Route("/SanPham/Create")]
+		public async Task<IActionResult> Create([FromForm] SanPhamDTO dto)
+		{
+			try
+			{
+				// Kiểm tra dữ liệu đầu vào
+				if (!ModelState.IsValid)
+					return BadRequest(ModelState);
+
+				string? imagePath = null;
+				if (dto.File != null && dto.File.Length > 0)
+				{
+					// Đường dẫn thư mục lưu ảnh
+					var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
+					if (!Directory.Exists(uploadPath))
+						Directory.CreateDirectory(uploadPath);
+
+					// Tạo tên file duy nhất
+					var fileName = $"{Guid.NewGuid()}_{dto.File.FileName}";
+					var filePath = Path.Combine(uploadPath, fileName);
+
+					// Lưu file vào thư mục
+					using (var stream = new FileStream(filePath, FileMode.Create))
+					{
+						await dto.File.CopyToAsync(stream);
+					}
+
+					// Lưu đường dẫn tương đối để lưu vào DB
+					imagePath = $"{fileName}";
+				}
+
+				// Tạo đối tượng sản phẩm
+				var sp = new Tsanpham
+				{
+					TenSanPham = dto.TenSanPham,
+					GiaSanPham = dto.GiaSanPham,
+					MaLoai = dto.MaLoai,
+					SLtonKho = dto.SLtonKho,
+					AnhSp = imagePath, // Lưu đường dẫn ảnh
+					MoTaSp = dto.MoTaSp,
+					NgayThemSp = dto.NgayThemSp ?? DateTime.Now,
+					Status = true
+				};
+
+				// Thêm vào DB
+				await dbContext.Tsanphams.AddAsync(sp);
+				await dbContext.SaveChangesAsync();
+
+				// Cập nhật DTO để trả về
+				dto.MaSanPham = sp.MaSanPham;
+				dto.AnhSp = sp.AnhSp;
+				dto.Status = true;
+
+				return Ok(dto);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, $"Lỗi server: {ex.Message}");
+			}
 		}
 
-		// 5. Cập nhật sản phẩm
+		/*// 5. Cập nhật sản phẩm
 		[HttpPut]
 		[Route("/SanPham/Update")]
 		public async Task<IActionResult> Update([FromBody] SanPhamDTO dto)
@@ -165,6 +228,53 @@ namespace ToHeBE.Controllers
 			await dbContext.SaveChangesAsync();
 
 			return Ok(dto);
+		}*/
+		[HttpPut]
+		[Route("/SanPham/Update")]
+		public async Task<IActionResult> Update([FromForm] SanPhamDTO dto)
+		{
+			try
+			{
+				var sp = await dbContext.Tsanphams.FirstOrDefaultAsync(x => x.MaSanPham == dto.MaSanPham && x.Status);
+				if (sp == null)
+					return NotFound("Không tìm thấy sản phẩm cần cập nhật.");
+
+				string? imagePath = sp.AnhSp;
+				if (dto.File != null && dto.File.Length > 0)
+				{
+					var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
+					if (!Directory.Exists(uploadPath))
+						Directory.CreateDirectory(uploadPath);
+
+					var fileName = $"{Guid.NewGuid()}_{dto.File.FileName}";
+					var filePath = Path.Combine(uploadPath, fileName);
+
+					using (var stream = new FileStream(filePath, FileMode.Create))
+					{
+						await dto.File.CopyToAsync(stream);
+					}
+
+					imagePath = fileName;
+				}
+
+				sp.TenSanPham = dto.TenSanPham;
+				sp.GiaSanPham = dto.GiaSanPham;
+				sp.MaLoai = dto.MaLoai;
+				sp.SLtonKho = dto.SLtonKho;
+				sp.AnhSp = imagePath;
+				sp.MoTaSp = dto.MoTaSp;
+				sp.NgayThemSp = dto.NgayThemSp ?? sp.NgayThemSp;
+				sp.Status = dto.Status;
+
+				await dbContext.SaveChangesAsync();
+
+				dto.AnhSp = sp.AnhSp;
+				return Ok(dto);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, $"Lỗi server: {ex.Message}");
+			}
 		}
 
 		// 6. "Xóa" sản phẩm (chuyển Status = false)

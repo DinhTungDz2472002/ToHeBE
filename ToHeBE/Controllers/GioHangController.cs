@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using ToHeBE.Models.Auth;
 
 namespace ToHeBE.Controllers
 {
@@ -31,7 +32,9 @@ namespace ToHeBE.Controllers
 			if (gioHang == null)
 				return NotFound(new { message = "Giỏ hàng không tồn tại" });
 
-			var chiTiet = gioHang.Tchitietgiohangs.Select(c => new
+			var chiTiet = gioHang.Tchitietgiohangs
+				.Where(c => c.MaSanPhamNavigation.Status == true)
+				.Select(c => new
 			{
 				c.MaChiTietGH,
 				c.MaSanPham,
@@ -51,38 +54,9 @@ namespace ToHeBE.Controllers
 			});
 		}
 
-		/*[HttpPost("them-san-pham")]
-		public IActionResult ThemSanPham([FromBody] ThemSanPhamModel model)
-		{
-			if (!ModelState.IsValid)
-				return BadRequest(ModelState);
-
-			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-			var gioHang = dbContext.Tgiohangs
-				.FirstOrDefault(g => g.MaKhachHang == int.Parse(userId));
-
-			if (gioHang == null)
-				return NotFound(new { message = "Giỏ hàng không tồn tại" });
-
-			var sanPham = dbContext.Tsanphams.Find(model.MaSanPham);
-			if (sanPham == null)
-				return NotFound(new { message = "Sản phẩm không tồn tại" });
-
-			var chiTiet = new Tchitietgiohang
-			{
-				MaGioHang = gioHang.MaGioHang,
-				MaSanPham = model.MaSanPham,
-				SlSP = model.SlSP,
-				DonGia = (double)sanPham.GiaSanPham
-			};
-
-			dbContext.Tchitietgiohangs.Add(chiTiet);
-			dbContext.SaveChanges();
-
-			return Ok(new { message = "Thêm sản phẩm thành công" });
-		}*/
+	
 		[HttpPost("them-san-pham")]
-		public IActionResult ThemSanPham([FromBody] ThemSanPhamModel model)
+		public IActionResult ThemSanPham([FromBody] ThemSanPhamCartModel model)
 		{
 			if (!ModelState.IsValid)
 				return BadRequest(ModelState);
@@ -151,7 +125,7 @@ namespace ToHeBE.Controllers
 			return Ok(new { message = "Xóa sản phẩm thành công" });
 		}
 		[HttpPut("cap-nhat-so-luong/{maChiTietGH}")]
-		public IActionResult CapNhatSoLuong(int maChiTietGH, [FromBody] CapNhatSoLuongModel model)
+		public IActionResult CapNhatSoLuong(int maChiTietGH, [FromBody] CapNhatSoLuongCartModel model)
 		{
 			if (!ModelState.IsValid)
 				return BadRequest(ModelState);
@@ -176,17 +150,4 @@ namespace ToHeBE.Controllers
 
 	}
 
-	public class CapNhatSoLuongModel
-	{
-		[Required]
-		public int SlSP { get; set; }
-	}
-	public class ThemSanPhamModel
-	{
-		[Required]
-		public int MaSanPham { get; set; }
-
-		[Required]
-		public int SlSP { get; set; }
-	}
 }

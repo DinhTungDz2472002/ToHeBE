@@ -28,8 +28,24 @@ namespace ToHeBE.Models
         public string? Pttt { get; set; }
         [Column("tongTienHDB")]
         public double? TongTienHdb { get; set; }
+		[Column("tenKhachHang")]
+		[StringLength(45)]
+		public string TenKhachHang { get; set; } = string.Empty;
 
-        [ForeignKey(nameof(MaKhachHang))]
+		[Column("diaChi")]
+		[StringLength(150)]
+		public string DiaChi { get; set; } = string.Empty;
+
+		[Column("SDT")]
+		[StringLength(45)]
+		public string Sdt { get; set; } = string.Empty;
+
+		[Column("Status")]
+		[StringLength(50)]
+		public string Status { get; set; } = "Chờ xác nhận";
+
+
+		[ForeignKey(nameof(MaKhachHang))]
         [InverseProperty(nameof(Tkhachhang.Thdbs))]
         public virtual Tkhachhang MaKhachHangNavigation { get; set; } = null!;
         [InverseProperty(nameof(Tchitiethdb.MaHdbNavigation))]

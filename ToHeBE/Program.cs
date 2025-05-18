@@ -39,8 +39,10 @@ if (app.Environment.IsDevelopment())
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
-
+// Thêm middleware để phục vụ tệp tĩnh
 app.UseStaticFiles();
+/**/
+
 
 app.UseRouting();
 

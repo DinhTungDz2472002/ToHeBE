@@ -1,0 +1,20 @@
+﻿<Project>
+  <ItemGroup>
+    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\7adee625-71f1-4ad8-a3a9-753daa3e989d_z6270625354592_3359a829a5cd7ae506dfb6370de0ea37.jpg))">
+      <SourceType>Package</SourceType>
+      <SourceId>ToHeBE</SourceId>
+      <ContentRoot>$(MSBuildThisFileDirectory)..\staticwebassets\</ContentRoot>
+      <BasePath>_content/ToHeBE</BasePath>
+      <RelativePath>uploads/7adee625-71f1-4ad8-a3a9-753daa3e989d_z6270625354592_3359a829a5cd7ae506dfb6370de0ea37.jpg</RelativePath>
+      <AssetKind>All</AssetKind>
+      <AssetMode>All</AssetMode>
+      <AssetRole>Primary</AssetRole>
+      <RelatedAsset></RelatedAsset>
+      <AssetTraitName></AssetTraitName>
+      <AssetTraitValue></AssetTraitValue>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <OriginalItemSpec>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\7adee625-71f1-4ad8-a3a9-753daa3e989d_z6270625354592_3359a829a5cd7ae506dfb6370de0ea37.jpg))</OriginalItemSpec>
+    </StaticWebAsset>
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "Q9kAxTj/issdyZrbwtUAud17E5BhXlyaKPyUDopqC4A=",
+  "Hash": "eYkv2Tf9i0q48mmWBoUgiSWJiu4as2m5DRS1UCsJovs=",
   "Source": "ToHeBE",
   "BasePath": "_content/ToHeBE",
   "Mode": "Default",
@@ -15,5 +15,23 @@
       "Pattern": "**"
     }
   ],
-  "Assets": []
+  "Assets": [
+    {
+      "Identity": "D:\\HK2_4\\ToHeBE\\ToHeBE\\wwwroot\\uploads\\7adee625-71f1-4ad8-a3a9-753daa3e989d_z6270625354592_3359a829a5cd7ae506dfb6370de0ea37.jpg",
+      "SourceId": "ToHeBE",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\HK2_4\\ToHeBE\\ToHeBE\\wwwroot\\",
+      "BasePath": "_content/ToHeBE",
+      "RelativePath": "uploads/7adee625-71f1-4ad8-a3a9-753daa3e989d_z6270625354592_3359a829a5cd7ae506dfb6370de0ea37.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\7adee625-71f1-4ad8-a3a9-753daa3e989d_z6270625354592_3359a829a5cd7ae506dfb6370de0ea37.jpg"
+    }
+  ]
 }
