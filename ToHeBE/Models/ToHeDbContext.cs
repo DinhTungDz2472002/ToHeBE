@@ -16,12 +16,12 @@ namespace ToHeBE.Models
         {
         }
 
-        public virtual DbSet<Taikhoan> Taikhoans { get; set; } = null!;
-        public virtual DbSet<Tanhctsp> Tanhctsps { get; set; } = null!;
+       /* public virtual DbSet<Taikhoan> Taikhoans { get; set; } = null!;*/
+       /* public virtual DbSet<Tanhctsp> Tanhctsps { get; set; } = null!;*/
         public virtual DbSet<Tchatlieu> Tchatlieus { get; set; } = null!;
         public virtual DbSet<TchitietSp> TchitietSps { get; set; } = null!;
         public virtual DbSet<Tchitiethdb> Tchitiethdbs { get; set; } = null!;
-        public virtual DbSet<Tchucvu> Tchucvus { get; set; } = null!;
+       /* public virtual DbSet<Tchucvu> Tchucvus { get; set; } = null!;*/
         public virtual DbSet<Tdanhgia> Tdanhgias { get; set; } = null!;
         public virtual DbSet<Tgiohang> Tgiohangs { get; set; } = null!;
         public virtual DbSet<Tchitietgiohang> Tchitietgiohangs { get; set; } = null!;
@@ -33,7 +33,7 @@ namespace ToHeBE.Models
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Taikhoan>(entity =>
+           /* modelBuilder.Entity<Taikhoan>(entity =>
             {
                 entity.HasKey(e => e.IdUser)
                     .HasName("PK__taikhoan__3717C98241EDB449");
@@ -42,9 +42,9 @@ namespace ToHeBE.Models
                     .WithMany(p => p.Taikhoans)
                     .HasForeignKey(d => d.MaChucVu)
                     .HasConstraintName("FK__taikhoan__maChuc__4F7CD00D");
-            });
+            });*/
 
-            modelBuilder.Entity<Tanhctsp>(entity =>
+            /*modelBuilder.Entity<Tanhctsp>(entity =>
             {
                 entity.HasKey(e => e.MaAnhCtsp)
                     .HasName("PK__tanhctsp__2ED5F72241D9C3FE");
@@ -54,7 +54,7 @@ namespace ToHeBE.Models
                     .HasForeignKey(d => d.MaChiTietSp)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FK__tanhctsp__maChiT__5EBF139D");
-            });
+            });*/
 
             modelBuilder.Entity<Tchatlieu>(entity =>
             {
@@ -104,11 +104,11 @@ namespace ToHeBE.Models
                     .HasConstraintName("FK__tchitieth__maSan__6EF57B66");
             });
 
-            modelBuilder.Entity<Tchucvu>(entity =>
+            /*modelBuilder.Entity<Tchucvu>(entity =>
             {
                 entity.HasKey(e => e.MaChucVu)
                     .HasName("PK__tchucvu__6E42BCD9DDD121E7");
-            });
+            });*/
 
             modelBuilder.Entity<Tdanhgia>(entity =>
             {

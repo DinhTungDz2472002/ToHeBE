@@ -17,11 +17,13 @@ namespace ToHeBE.Controllers
 	{
 		private readonly ToHeDbContext dbContext;
 		private readonly IConfiguration _configuration;
+		private readonly EmailService _emailService;
 
-		public KhachHangController(ToHeDbContext dbContext, IConfiguration configuration)
+		public KhachHangController(ToHeDbContext dbContext, IConfiguration configuration, EmailService emailService)
 		{
 			this.dbContext = dbContext;
 			_configuration = configuration;
+			_emailService = emailService;
 		}
 
 		// Login API
@@ -74,6 +76,7 @@ namespace ToHeBE.Controllers
 				/*GioiTinh = model.GioiTinh,
 				DiaChi = model.DiaChi,*/
 				Sdt = model.Sdt,
+				/*ChucVu = "User" // Mặc định là User khi đăng ký*/
 				Email = model.Email,
 				Password = BCrypt.Net.BCrypt.HashPassword(model.Password)
 			};
@@ -147,12 +150,14 @@ namespace ToHeBE.Controllers
 		// Phương thức tạo JWT Token cho khách hàng
 		private string GenerateJwtToken(Tkhachhang khachHang)
 		{
+
 			var claims = new[]
 			{
 				new Claim(ClaimTypes.NameIdentifier, khachHang.MaKhachHang.ToString()),
 				new Claim(ClaimTypes.Name, khachHang.TenKhachHang),
 				new Claim(ClaimTypes.Email, khachHang.Email),
 				new Claim(ClaimTypes.NameIdentifier, khachHang.Username)
+				/*new Claim(ClaimTypes.Role, user.ChucVu) // "Admin" hoặc "User"*/
 			};
 
 			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
@@ -166,6 +171,111 @@ namespace ToHeBE.Controllers
 				signingCredentials: creds);
 
 			return new JwtSecurityTokenHandler().WriteToken(token);
+		}
+
+
+		// Tạo JWT token cho khôi phục mật khẩu
+		private string GenerateResetPasswordToken(string email)
+		{
+			var claims = new[]
+			{
+				new Claim(ClaimTypes.Email, email)
+			};
+
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+			var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+			var token = new JwtSecurityToken(
+				issuer: _configuration["Jwt:Issuer"],
+				audience: _configuration["Jwt:Audience"],
+				claims: claims,
+				expires: DateTime.Now.AddHours(1), // Token hết hạn sau 1 giờ
+				signingCredentials: creds);
+
+			return new JwtSecurityTokenHandler().WriteToken(token);
+		}
+
+		// Xác thực JWT token cho khôi phục mật khẩu
+		private string ValidateResetPasswordToken(string token)
+		{
+			try
+			{
+				var tokenHandler = new JwtSecurityTokenHandler();
+				var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
+				tokenHandler.ValidateToken(token, new TokenValidationParameters
+				{
+					ValidateIssuer = true,
+					ValidateAudience = true,
+					ValidateLifetime = true,
+					ValidateIssuerSigningKey = true,
+					ValidIssuer = _configuration["Jwt:Issuer"],
+					ValidAudience = _configuration["Jwt:Audience"],
+					IssuerSigningKey = new SymmetricSecurityKey(key)
+				}, out SecurityToken validatedToken);
+
+				var jwtToken = (JwtSecurityToken)validatedToken;
+				return jwtToken.Claims.First(x => x.Type == ClaimTypes.Email).Value;
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		// Forgot Password API
+		[HttpPost("forgot-password")]
+		public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+		{
+			if (!ModelState.IsValid)
+				return BadRequest(ModelState);
+
+			var khachHang = dbContext.Tkhachhangs
+				.FirstOrDefault(k => k.Email == request.Email);
+			if (khachHang == null)
+			{
+				return BadRequest(new { error = "Email không tồn tại" });
+			}
+
+			// Tạo JWT token cho khôi phục mật khẩu
+			var token = GenerateResetPasswordToken(khachHang.Email);
+
+			try
+			{
+				await _emailService.SendPasswordResetEmailAsync(khachHang.Email, token);
+				return Ok(new { message = "Liên kết khôi phục mật khẩu đã được gửi qua email" });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { error = $"Lỗi khi gửi email: {ex.Message}" });
+			}
+		}
+
+		// Reset Password API
+		[HttpPost("reset-password")]
+		public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+		{
+			if (!ModelState.IsValid)
+				return BadRequest(ModelState);
+
+			// Xác thực JWT token
+			var email = ValidateResetPasswordToken(request.Token);
+			if (email == null)
+			{
+				return BadRequest(new { error = "Token không hợp lệ hoặc đã hết hạn" });
+			}
+
+			var khachHang = dbContext.Tkhachhangs
+				.FirstOrDefault(k => k.Email == email);
+			if (khachHang == null)
+			{
+				return BadRequest(new { error = "Email không tồn tại" });
+			}
+
+			// Cập nhật mật khẩu
+			khachHang.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+			await dbContext.SaveChangesAsync();
+
+			return Ok(new { message = "Mật khẩu đã được đặt lại thành công" });
 		}
 	}
 }

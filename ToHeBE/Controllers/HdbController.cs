@@ -1,13 +1,16 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ToHeBE.Models;
 using ToHeBE.Models.DTO;
 
+
 namespace ToHeBE.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	[Authorize]
 	public class HdbController : ControllerBase
 	{
 		private readonly ToHeDbContext dbContext;
@@ -17,164 +20,445 @@ namespace ToHeBE.Controllers
 			this.dbContext = dbContext;
 		}
 
-			// Get All
-			// Get All with Pagination
-	[HttpGet]
-	[Route("/HoaDonBan/GetList")]
-	public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-	{
-		if (pageNumber <= 0) pageNumber = 1;
-		if (pageSize <= 0) pageSize = 10;
+		// Get All
+		// Get All with Pagination
+		// Get All with Pagination
+		[HttpGet("GetChoGiaoHang")]
 
-		var query = dbContext.Thdbs.AsQueryable();
-
-		var totalItems = await query.CountAsync();
-		var hdbs = await query
-			.OrderByDescending(x => x.MaHdb) // Sắp xếp mới nhất trước (tùy chọn)
-			.Skip((pageNumber - 1) * pageSize)
-			.Take(pageSize)
-			.ToListAsync();
-
-		var hdbDto = hdbs.Select(hdb => new HdbDto()
+		public async Task<IActionResult> Get_Cho_Giao_Hang([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
-			MaHdb = hdb.MaHdb,
-			MaKhachHang = hdb.MaKhachHang,
-			NgayLapHdb = hdb.NgayLapHdb,
-			GiamGia = hdb.GiamGia,
-			Pttt = hdb.Pttt,
-			TongTienHdb = hdb.TongTienHdb
-		}).ToList();
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest(new { message = "Số trang và kích thước trang phải lớn hơn 0." });
 
-		return Ok(new
-		{
-			TotalItems = totalItems,
-			PageNumber = pageNumber,
-			PageSize = pageSize,
-			TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize),
-			Data = hdbDto
-		});
-	}
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+				.ThenInclude(c => c.MaSanPhamNavigation)
+				.AsQueryable();
 
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+			// Lọc hóa đơn có Status là "Chờ giao hàng"
+			query = query.Where(x => x.Status == "Chờ giao hàng");
+			var hdbs = await query
+				.OrderByDescending(x => x.NgayLapHdb ?? DateTime.MinValue)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+			
 
-		// Tìm kiếm
-		[HttpPost]
-		[Route("/HoaDonBan/Search")]
-		public async Task<IActionResult> TimKiem([FromQuery] string s)
-		{
-			if (string.IsNullOrWhiteSpace(s))
-				return BadRequest("Từ khóa tìm kiếm không hợp lệ.");
-
-			bool isInt = int.TryParse(s, out int number);
-			DateTime? ngaySearch = DateTime.TryParse(s, out var parsedDate) ? parsedDate.Date : null;
-
-			var hdbs = await dbContext.Thdbs.ToListAsync();
-
-			var filtered = hdbs
-				.Where(item =>
-					(isInt && (item.MaHdb == number || item.MaKhachHang == number)) ||
-					(ngaySearch.HasValue && item.NgayLapHdb.HasValue && item.NgayLapHdb.Value.Date == ngaySearch.Value) ||
-					(item.NgayLapHdb.HasValue && (
-						item.NgayLapHdb.Value.Year.ToString() == s ||
-						item.NgayLapHdb.Value.Month.ToString("00") == s
-					)) ||
-					(!string.IsNullOrEmpty(item.Pttt) && item.Pttt.ToLower().Contains(s.ToLower()))
-				)
-				.ToList();
-
-			var hdbDto = new List<HdbDto>();
-			foreach (var hdb in filtered)
-			{
-				hdbDto.Add(new HdbDto()
-				{
-					MaHdb = hdb.MaHdb,
-					MaKhachHang = hdb.MaKhachHang,
-					NgayLapHdb = hdb.NgayLapHdb,
-					GiamGia = hdb.GiamGia,
-					Pttt = hdb.Pttt,
-					TongTienHdb = hdb.TongTienHdb
-				});
-			}
-			return Ok(hdbDto);
-		}
-
-		// Get by ID
-		[HttpGet]
-		[Route("/HoaDonBan/GetById")]
-		public async Task<IActionResult> GetById([FromQuery] int id)
-		{
-			var hdb = await dbContext.Thdbs.FirstOrDefaultAsync(x => x.MaHdb == id);
-			if (hdb == null)
-				return NotFound("Không tìm thấy hóa đơn.");
-
-			var dto = new HdbDto()
+			var hdbDto = hdbs.Select(hdb => new HdbDto
 			{
 				MaHdb = hdb.MaHdb,
 				MaKhachHang = hdb.MaKhachHang,
 				NgayLapHdb = hdb.NgayLapHdb,
 				GiamGia = hdb.GiamGia,
 				Pttt = hdb.Pttt,
-				TongTienHdb = hdb.TongTienHdb
-			};
+				TongTienHdb = hdb.TongTienHdb ?? 0, // Default to 0 if null
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien ?? 0, // Default to 0 if null
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
 
-			return Ok(dto);
-		}
+			if (!hdbDto.Any())
+				return Ok(new { message = "Không có hóa đơn nào", hoaDons = new List<object>() });
 
-		// Thêm mới
-		[HttpPost]
-		[Route("/HoaDonBan/Create")]
-		public async Task<IActionResult> Create([FromBody] HdbDto dto)
-		{
-			var hdb = new Thdb()
+			return Ok(new
 			{
-				MaKhachHang = dto.MaKhachHang,
-				NgayLapHdb = dto.NgayLapHdb ?? DateTime.Now,
-				GiamGia = dto.GiamGia,
-				Pttt = dto.Pttt,
-				TongTienHdb = dto.TongTienHdb
-			};
-
-			await dbContext.Thdbs.AddAsync(hdb);
-			await dbContext.SaveChangesAsync();
-
-			dto.MaHdb = hdb.MaHdb;
-
-			return Ok(dto);
+				message = "Lấy danh sách hóa đơn thành công",
+				currentPage = pageNumber,
+				pageSize = pageSize,
+				totalItems = totalItems,
+				totalPages = totalPages,
+				hoaDons = hdbDto
+			});
 		}
+		[HttpGet("GetChoXacNhan")]
 
-		// Cập nhật
-		[HttpPut]
-		[Route("/HoaDonBan/Update")]
-		public async Task<IActionResult> Update([FromBody] HdbDto dto)
+		public async Task<IActionResult> Get_Cho_Xac_Nhan([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
-			var hdb = await dbContext.Thdbs.FirstOrDefaultAsync(x => x.MaHdb == dto.MaHdb);
-			if (hdb == null)
-				return NotFound("Không tìm thấy hóa đơn cần cập nhật.");
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest(new { message = "Số trang và kích thước trang phải lớn hơn 0." });
 
-			hdb.MaKhachHang = dto.MaKhachHang;
-			hdb.NgayLapHdb = dto.NgayLapHdb ?? hdb.NgayLapHdb;
-			hdb.GiamGia = dto.GiamGia;
-			hdb.Pttt = dto.Pttt;
-			hdb.TongTienHdb = dto.TongTienHdb;
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+				.ThenInclude(c => c.MaSanPhamNavigation)
+				.AsQueryable();
 
-			await dbContext.SaveChangesAsync();
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+			// Lọc hóa đơn có Status là "Chờ giao hàng"
+			query = query.Where(x => x.Status == "Chờ xác nhận");
+			var hdbs = await query
+				.OrderByDescending(x => x.NgayLapHdb ?? DateTime.MinValue)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
 
-			return Ok(dto);
+
+			var hdbDto = hdbs.Select(hdb => new HdbDto
+			{
+				MaHdb = hdb.MaHdb,
+				MaKhachHang = hdb.MaKhachHang,
+				NgayLapHdb = hdb.NgayLapHdb,
+				GiamGia = hdb.GiamGia,
+				Pttt = hdb.Pttt,
+				TongTienHdb = hdb.TongTienHdb ?? 0, // Default to 0 if null
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien ?? 0, // Default to 0 if null
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
+
+			if (!hdbDto.Any())
+				return Ok(new { message = "Không có hóa đơn nào", hoaDons = new List<object>() });
+
+			return Ok(new
+			{
+				message = "Lấy danh sách hóa đơn thành công",
+				currentPage = pageNumber,
+				pageSize = pageSize,
+				totalItems = totalItems,
+				totalPages = totalPages,
+				hoaDons = hdbDto
+			});
 		}
 
-		// Xóa
-		[HttpDelete]
-		[Route("/HoaDonBan/Delete")]
-		public async Task<IActionResult> Delete([FromQuery] int id)
+		[HttpGet("GetDaGiao")]
+
+		public async Task<IActionResult> Get_Da_Giao([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
-			var hdb = await dbContext.Thdbs.FirstOrDefaultAsync(x => x.MaHdb == id);
-			if (hdb == null)
-				return NotFound("Không tìm thấy hóa đơn cần xóa.");
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest(new { message = "Số trang và kích thước trang phải lớn hơn 0." });
 
-			dbContext.Thdbs.Remove(hdb);
-			await dbContext.SaveChangesAsync();
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+				.ThenInclude(c => c.MaSanPhamNavigation)
+				.AsQueryable();
 
-			return Ok("Đã xóa thành công.");
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+			// Lọc hóa đơn có Status là "Chờ giao hàng"
+			query = query.Where(x => x.Status == "Đã Giao");
+			var hdbs = await query
+				.OrderByDescending(x => x.NgayLapHdb ?? DateTime.MinValue)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+
+
+			var hdbDto = hdbs.Select(hdb => new HdbDto
+			{
+				MaHdb = hdb.MaHdb,
+				MaKhachHang = hdb.MaKhachHang,
+				NgayLapHdb = hdb.NgayLapHdb,
+				GiamGia = hdb.GiamGia,
+				Pttt = hdb.Pttt,
+				TongTienHdb = hdb.TongTienHdb ?? 0, // Default to 0 if null
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien,
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
+
+			if (!hdbDto.Any())
+				return Ok(new { message = "Không có hóa đơn nào", hoaDons = new List<object>() });
+
+			return Ok(new
+			{
+				message = "Lấy danh sách hóa đơn thành công",
+				currentPage = pageNumber,
+				pageSize = pageSize,
+				totalItems = totalItems,
+				totalPages = totalPages,
+				hoaDons = hdbDto
+			});
 		}
+		[HttpGet("GetDaHuy")]
+
+		public async Task<IActionResult> Get_Da_Huy([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+		{
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest(new { message = "Số trang và kích thước trang phải lớn hơn 0." });
+
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+				.ThenInclude(c => c.MaSanPhamNavigation)
+				.AsQueryable();
+
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+			// Lọc hóa đơn có Status là "Chờ giao hàng"
+			query = query.Where(x => x.Status == "Đã Hủy");
+			var hdbs = await query
+				.OrderByDescending(x => x.NgayLapHdb ?? DateTime.MinValue)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+
+
+			var hdbDto = hdbs.Select(hdb => new HdbDto
+			{
+				MaHdb = hdb.MaHdb,
+				MaKhachHang = hdb.MaKhachHang,
+				NgayLapHdb = hdb.NgayLapHdb,
+				GiamGia = hdb.GiamGia,
+				Pttt = hdb.Pttt,
+				TongTienHdb = hdb.TongTienHdb ?? 0, // Default to 0 if null
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien ?? 0, // Default to 0 if null
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
+
+			if (!hdbDto.Any())
+				return Ok(new { message = "Không có hóa đơn nào", hoaDons = new List<object>() });
+
+			return Ok(new
+			{
+				message = "Lấy danh sách hóa đơn thành công",
+				currentPage = pageNumber,
+				pageSize = pageSize,
+				totalItems = totalItems,
+				totalPages = totalPages,
+				hoaDons = hdbDto
+			});
+		}
+
+		[HttpGet("GetKhachMuonHuy")]
+
+		public async Task<IActionResult> Get_Khach_Muon_Huy([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+		{
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest(new { message = "Số trang và kích thước trang phải lớn hơn 0." });
+
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+				.ThenInclude(c => c.MaSanPhamNavigation)
+				.AsQueryable();
+
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+			// Lọc hóa đơn có Status là "Chờ giao hàng"
+			query = query.Where(x => x.Status == "Khách Muốn Hủy");
+			var hdbs = await query
+				.OrderByDescending(x => x.NgayLapHdb ?? DateTime.MinValue)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+
+
+			var hdbDto = hdbs.Select(hdb => new HdbDto
+			{
+				MaHdb = hdb.MaHdb,
+				MaKhachHang = hdb.MaKhachHang,
+				NgayLapHdb = hdb.NgayLapHdb,
+				GiamGia = hdb.GiamGia,
+				Pttt = hdb.Pttt,
+				TongTienHdb = hdb.TongTienHdb ?? 0, // Default to 0 if null
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien ?? 0, // Default to 0 if null
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
+
+			if (!hdbDto.Any())
+				return Ok(new { message = "Không có hóa đơn nào", hoaDons = new List<object>() });
+
+			return Ok(new
+			{
+				message = "Lấy danh sách hóa đơn thành công",
+				currentPage = pageNumber,
+				pageSize = pageSize,
+				totalItems = totalItems,
+				totalPages = totalPages,
+				hoaDons = hdbDto
+			});
+		}
+		// Search
+		[HttpPost("TimKiem")]
+
+		public async Task<IActionResult> TimKiem([FromQuery] string s)
+		{
+			if (string.IsNullOrWhiteSpace(s))
+				return BadRequest(new { message = "Từ khóa tìm kiếm không hợp lệ." });
+
+			bool isInt = int.TryParse(s, out int number);
+			bool isYear = int.TryParse(s, out int year) && s.Length == 4; // Check if s is a 4-digit year
+			bool isMonth = int.TryParse(s, out int month) && month >= 1 && month <= 12; // Check if s is a valid month
+			DateTime? ngaySearch = DateTime.TryParse(s, out var parsedDate) ? parsedDate.Date : null;
+
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+				.ThenInclude(c => c.MaSanPhamNavigation)
+				.AsQueryable();
+
+			query = query.Where(item =>
+				(isInt && (item.MaHdb == number || item.MaKhachHang == number)) ||
+				(ngaySearch.HasValue && item.NgayLapHdb.HasValue && item.NgayLapHdb.Value.Date == ngaySearch.Value) ||
+				(item.NgayLapHdb.HasValue && (
+					(isYear && item.NgayLapHdb.Value.Year == year) ||
+					(isMonth && item.NgayLapHdb.Value.Month == month)
+				)) ||
+				(!string.IsNullOrEmpty(item.Pttt) && item.Pttt.ToLower().Contains(s.ToLower())) ||
+				(!string.IsNullOrEmpty(item.TenKhachHang) && item.TenKhachHang.ToLower().Contains(s.ToLower())) ||
+				(!string.IsNullOrEmpty(item.Sdt) && item.Sdt.ToLower().Contains(s.ToLower()))
+			);
+
+			var filtered = await query.ToListAsync();
+
+			var hdbDto = filtered.Select(hdb => new HdbDto
+			{
+				MaHdb = hdb.MaHdb,
+				MaKhachHang = hdb.MaKhachHang,
+				NgayLapHdb = hdb.NgayLapHdb,
+				GiamGia = hdb.GiamGia,
+				Pttt = hdb.Pttt,
+				TongTienHdb = hdb.TongTienHdb ?? 0, // Default to 0 if null
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien ?? 0, // Default to 0 if null
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
+
+			return Ok(new { message = "Tìm kiếm hóa đơn thành công", hoaDons = hdbDto });
+		}
+		
+		[HttpPut("UpdateChoGiaoHang")]
+
+		public async Task<IActionResult> UpdateChoGiaoHang([FromQuery] int maHdb)
+		{
+			var hdb = await dbContext.Thdbs
+				.FirstOrDefaultAsync(x => x.MaHdb == maHdb);
+
+			if (hdb == null)
+				return NotFound(new { message = "Không tìm thấy hóa đơn cần cập nhật." });
+			// Kiểm tra trạng thái hiện tại
+			if ( hdb.Status == "Đã Giao" || hdb.Status == "Đã Hủy")
+			{
+				return Ok(new { message = "Không thể cập nhật trạng thái thành 'Chờ giao hàng' do trạng thái hiện tại.", currentStatus = hdb.Status });
+			}
+
+			hdb.Status = "Chờ giao hàng";
+
+			await dbContext.SaveChangesAsync();
+			return Ok(hdb);
+		}
+
+	
+		[HttpPut("UpdateDaGiao")]
+		public async Task<IActionResult> Update_Da_Giao([FromQuery] int maHdb)
+		{
+			var hdb = await dbContext.Thdbs
+				.FirstOrDefaultAsync(x => x.MaHdb == maHdb);
+
+			if (hdb == null)
+				return NotFound(new { message = "Không tìm thấy hóa đơn cần cập nhật." });
+			// Kiểm tra trạng thái hiện tại
+			if (hdb.Status == "Đã Hủy")
+			{
+				return Ok(new { message = "Không thể cập nhật trạng thái thành 'Đã Giao' do trạng thái hiện tại.", currentStatus = hdb.Status });
+			}
+			hdb.Status = "Đã Giao";
+
+			await dbContext.SaveChangesAsync();
+			return Ok(hdb);
+		}
+		[HttpPut("UpdateDaHuy")]
+		public async Task<IActionResult> Update_Da_Huy([FromQuery] int maHdb)
+		{
+			var hdb = await dbContext.Thdbs
+				.FirstOrDefaultAsync(x => x.MaHdb == maHdb);
+
+			if (hdb == null)
+				return NotFound(new { message = "Không tìm thấy hóa đơn cần cập nhật." });
+
+			hdb.Status = "Đã Hủy";
+
+			await dbContext.SaveChangesAsync();
+			return Ok(hdb);
+		}
+
+		[HttpPut("UpdateKhachMuonHuy")]
+		public async Task<IActionResult> Update_Khach_Muon_Huy([FromQuery] int maHdb)
+		{
+			var hdb = await dbContext.Thdbs
+				.FirstOrDefaultAsync(x => x.MaHdb == maHdb);
+			if (hdb == null)
+				return NotFound(new { message = "Không tìm thấy hóa đơn cần cập nhật." });
+			if (hdb.Status == "Chờ xác nhận")
+			{
+				hdb.Status = "Đã Hủy";
+			}
+			else
+			{
+				hdb.Status = "Khách Muốn Hủy";
+			}
+
+			await dbContext.SaveChangesAsync();
+			return Ok(hdb);
+		}
+
 	}
 }
 

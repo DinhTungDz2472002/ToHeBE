@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ToHeBE.Models.DTO
 {
-	public class SanPhamDTO
+	public class SanPhamDto
 	{
 		[Key]
 		[Column("maSanPham")]
@@ -29,5 +29,6 @@ namespace ToHeBE.Models.DTO
 		public bool Status { get; set; } = true;
 		// Thêm thuộc tính để nhận file ảnh
 		public IFormFile? File { get; set; }
+		public List<ChiTietSpDto> ChiTietSps { get; set; } = new List<ChiTietSpDto>();
 	}
 }

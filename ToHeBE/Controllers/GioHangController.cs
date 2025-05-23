@@ -54,8 +54,8 @@ namespace ToHeBE.Controllers
 			});
 		}
 
-	
-		[HttpPost("them-san-pham")]
+
+		/*[HttpPost("them-san-pham")]
 		public IActionResult ThemSanPham([FromBody] ThemSanPhamCartModel model)
 		{
 			if (!ModelState.IsValid)
@@ -104,6 +104,74 @@ namespace ToHeBE.Controllers
 
 			return Ok(new { message = "Thêm sản phẩm thành công" });
 		}
+*/
+		[HttpPost("them-san-pham")]
+		public IActionResult ThemSanPham([FromBody] ThemSanPhamCartModel model)
+		{
+			if (!ModelState.IsValid)
+				return BadRequest(ModelState);
+
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			var gioHang = dbContext.Tgiohangs
+				.FirstOrDefault(g => g.MaKhachHang == int.Parse(userId));
+
+			if (gioHang == null)
+			{
+				gioHang = new Tgiohang
+				{
+					MaKhachHang = int.Parse(userId),
+					NgayTao = DateTime.UtcNow
+				};
+				dbContext.Tgiohangs.Add(gioHang);
+				dbContext.SaveChanges();
+			}
+
+			var sanPham = dbContext.Tsanphams.Find(model.MaSanPham);
+			if (sanPham == null)
+				return NotFound(new { message = "Sản phẩm không tồn tại" });
+
+			var chiTiet = dbContext.Tchitietgiohangs
+				.FirstOrDefault(c => c.MaGioHang == gioHang.MaGioHang && c.MaSanPham == model.MaSanPham);
+
+			if (chiTiet != null)
+			{
+				chiTiet.SlSP += model.SlSP;
+				chiTiet.DonGia = (double)sanPham.GiaSanPham * chiTiet.SlSP;
+			}
+			else
+			{
+				chiTiet = new Tchitietgiohang
+				{
+					MaGioHang = gioHang.MaGioHang,
+					MaSanPham = model.MaSanPham,
+					SlSP = model.SlSP,
+					DonGia = (double)sanPham.GiaSanPham * model.SlSP
+				};
+				dbContext.Tchitietgiohangs.Add(chiTiet);
+			}
+
+			dbContext.SaveChanges();
+
+			// Trả về thông tin chi tiết của sản phẩm vừa thêm
+			return Ok(new
+			{
+				message = "Thêm sản phẩm thành công",
+				chiTietGioHang = new
+				{
+					MaChiTietGH = chiTiet.MaChiTietGH, // Giả sử Tchitietgiohang có thuộc tính MaChiTietGH
+					MaSanPham = chiTiet.MaSanPham,
+					SlSP = chiTiet.SlSP,
+					DonGia = chiTiet.DonGia,
+					SanPham = new
+					{
+						TenSanPham = sanPham.TenSanPham,
+						AnhSp = sanPham.AnhSp,
+						GiaSanPham = sanPham.GiaSanPham
+					}
+				}
+			});
+		}
+
 
 		[HttpDelete("xoa-san-pham/{maChiTietGH}")]
 		public IActionResult XoaSanPham(int maChiTietGH)

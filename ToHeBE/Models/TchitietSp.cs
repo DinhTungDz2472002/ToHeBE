@@ -9,11 +9,6 @@ namespace ToHeBE.Models
     [Table("tchitietSP")]
     public partial class TchitietSp
     {
-        public TchitietSp()
-        {
-            Tanhctsps = new HashSet<Tanhctsp>();
-        }
-
         [Key]
         [Column("maChiTietSP")]
         public int MaChiTietSp { get; set; }
@@ -38,7 +33,7 @@ namespace ToHeBE.Models
         [ForeignKey(nameof(MaSanPham))]
         [InverseProperty(nameof(Tsanpham.TchitietSps))]
         public virtual Tsanpham MaSanPhamNavigation { get; set; } = null!;
-        [InverseProperty(nameof(Tanhctsp.MaChiTietSpNavigation))]
-        public virtual ICollection<Tanhctsp> Tanhctsps { get; set; }
+       /* [InverseProperty(nameof(Tanhctsp.MaChiTietSpNavigation))]
+        public virtual ICollection<Tanhctsp> Tanhctsps { get; set; }*/
     }
 }

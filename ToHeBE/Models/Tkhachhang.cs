@@ -45,7 +45,11 @@ namespace ToHeBE.Models
 		[StringLength(256)]
 		public string Password { get; set; }
 
-	[InverseProperty(nameof(Tdanhgia.MaKhachHangNavigation))]
+		[Column("Role")]
+		[StringLength(50)]
+		public string Role { get; set; } = "User"; // Giá trị mặc định là "User"
+
+		[InverseProperty(nameof(Tdanhgia.MaKhachHangNavigation))]
         public virtual ICollection<Tdanhgia> Tdanhgias { get; set; }
         [InverseProperty(nameof(Tgiohang.MaKhachHangNavigation))]
         public virtual ICollection<Tgiohang> Tgiohangs { get; set; }

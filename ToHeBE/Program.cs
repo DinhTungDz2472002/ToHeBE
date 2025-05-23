@@ -3,6 +3,8 @@ using ToHeBE.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using ToHeBE.Models.Auth;
+
 var builder = WebApplication.CreateBuilder(args);
 
 string strcnn = builder.Configuration.GetConnectionString("cnn");
@@ -30,6 +32,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 				Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
 		};
 	});
+
+builder.Services.AddSingleton<EmailService>(); /*cấu hình gửi mail*/
 
 var app = builder.Build();
 app.UseCors(builder => builder.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());

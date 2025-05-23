@@ -16,10 +16,12 @@ namespace ToHeBE.Controllers
 	public class OrderController : ControllerBase
 	{
 		private readonly ToHeDbContext dbContext;
+		private readonly EmailService _emailService;
 
-		public OrderController(ToHeDbContext dbContext)
+		public OrderController(ToHeDbContext dbContext, EmailService emailService)
 		{
 			this.dbContext = dbContext;
+			_emailService = emailService;
 		}
 
 
@@ -98,6 +100,7 @@ namespace ToHeBE.Controllers
 				dbContext.Thdbs.Add(hoaDon);
 				await dbContext.SaveChangesAsync();
 
+				var chiTietHdbList = new List<Tchitiethdb>();
 				// Tạo chi tiết hóa đơn
 				foreach (var chiTiet in chiTietGioHang)
 				{
@@ -108,6 +111,7 @@ namespace ToHeBE.Controllers
 						Sl = chiTiet.SlSP,
 						ThanhTien = chiTiet.DonGia
 					};
+					chiTietHdbList.Add(chiTietHDB);
 					dbContext.Tchitiethdbs.Add(chiTietHDB);
 
 					// Cập nhật số lượng tồn kho
@@ -119,20 +123,43 @@ namespace ToHeBE.Controllers
 				dbContext.Tchitietgiohangs.RemoveRange(chiTietGioHang);
 				await dbContext.SaveChangesAsync();
 
+				// Gửi email xác nhận đơn hàng
+				try
+				{
+					await _emailService.SendOrderConfirmationEmailAsync(
+						khachHang.Email,
+						hoaDon,
+						chiTietHdbList,
+						model.TenKhachHang
+					);
+				}
+				catch (Exception ex)
+				{
+					// Log lỗi gửi email nhưng không làm thất bại giao dịch
+					Console.WriteLine($"Lỗi gửi email xác nhận đơn hàng: {ex.Message}");
+				}
+
 				await transaction.CommitAsync();
 
 				return Ok(new
 				{
-					message = "Tạo hóa đơn thành công",
+					message = "Tạo hóa đơn thành công. Hóa đơn đã được gửi qua email.",
 					hoaDon = new
 					{
 						hoaDon.MaHdb,
 						hoaDon.NgayLapHdb,
 						hoaDon.TongTienHdb,
-						hoaDon.Pttt,
 						hoaDon.DiaChi,
 						hoaDon.Sdt,
-						hoaDon.Status
+						hoaDon.Status,
+						ChiTietHoaDon = chiTietHdbList.Select(c => new
+						{
+							c.MaSanPham,
+							c.Sl,
+							c.ThanhTien,
+							TenSanPham = c.MaSanPhamNavigation.TenSanPham,
+							AnhSp = c.MaSanPhamNavigation.AnhSp
+						})
 					}
 				});
 			}
