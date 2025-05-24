@@ -12,6 +12,8 @@ builder.Services.AddDbContext<ToHeDbContext>(options => options.UseSqlServer(str
 
 // Add services to the container.
 builder.Services.AddControllers();
+
+builder.Services.AddAuthorization();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -34,6 +36,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	});
 
 builder.Services.AddSingleton<EmailService>(); /*cấu hình gửi mail*/
+
+
 
 var app = builder.Build();
 app.UseCors(builder => builder.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());

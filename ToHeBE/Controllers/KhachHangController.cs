@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using BCrypt.Net;
 using ToHeBE.Models.Auth;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using ToHeBE.Models.DTO;
 
 namespace ToHeBE.Controllers
 {
@@ -118,7 +120,7 @@ namespace ToHeBE.Controllers
 		}
 
 		// API lấy thông tin khách hàng hiện tại (chỉ khi đã đăng nhập)
-		[Authorize]
+		/*[Authorize(Roles = "Admin")]*/
 		[HttpGet("me")]
 		public IActionResult Me()
 		{
@@ -128,7 +130,7 @@ namespace ToHeBE.Controllers
 				return NotFound();
 
 			return Ok(new
-			{
+			{	/*khachHang.Role,*/
 				khachHang.MaKhachHang,
 				khachHang.TenKhachHang,
 				khachHang.Email,
@@ -156,8 +158,8 @@ namespace ToHeBE.Controllers
 				new Claim(ClaimTypes.NameIdentifier, khachHang.MaKhachHang.ToString()),
 				new Claim(ClaimTypes.Name, khachHang.TenKhachHang),
 				new Claim(ClaimTypes.Email, khachHang.Email),
-				new Claim(ClaimTypes.NameIdentifier, khachHang.Username)
-				/*new Claim(ClaimTypes.Role, user.ChucVu) // "Admin" hoặc "User"*/
+				new Claim(ClaimTypes.NameIdentifier, khachHang.Username),
+				new Claim(ClaimTypes.Role, khachHang.Role) // "Admin" hoặc "User"
 			};
 
 			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
@@ -277,5 +279,106 @@ namespace ToHeBE.Controllers
 
 			return Ok(new { message = "Mật khẩu đã được đặt lại thành công" });
 		}
+
+
+		[HttpPut("{id}")]
+		public async Task<IActionResult> UpdateKhachHang(int id, [FromBody] KhachHangUpdateDto khachHangDto)
+		{
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ModelState);
+			}
+
+			var khachHang = await dbContext.Tkhachhangs.FindAsync(id);
+			if (khachHang == null)
+			{
+				return NotFound(new { message = "Không tìm thấy khách hàng" });
+			}
+
+			// Kiểm tra email duy nhất (nếu email thay đổi)
+			if (!string.IsNullOrEmpty(khachHangDto.Email) && khachHangDto.Email != khachHang.Email)
+			{
+				var emailExists = await dbContext.Tkhachhangs
+					.AnyAsync(kh => kh.Email == khachHangDto.Email && kh.MaKhachHang != id);
+				if (emailExists)
+				{
+					return BadRequest(new { message = "Email đã tồn tại" });
+				}
+			}
+
+			// Kiểm tra username duy nhất (nếu username thay đổi)
+			if (!string.IsNullOrEmpty(khachHangDto.Username) && khachHangDto.Username != khachHang.Username)
+			{
+				var usernameExists = await dbContext.Tkhachhangs
+					.AnyAsync(kh => kh.Username == khachHangDto.Username && kh.MaKhachHang != id);
+				if (usernameExists)
+				{
+					return BadRequest(new { message = "Username đã tồn tại" });
+				}
+			}
+
+			try
+			{
+				// Cập nhật các trường được phép thay đổi
+				khachHang.Username = khachHangDto.Username;
+				khachHang.TenKhachHang = khachHangDto.TenKhachHang;
+				khachHang.DiaChi = khachHangDto.DiaChi;
+				khachHang.Sdt = khachHangDto.SoDienThoai;
+				khachHang.Email = khachHangDto.Email;
+
+				await dbContext.SaveChangesAsync();
+				return Ok(new { message = "Cập nhật thông tin khách hàng thành công" });
+			}
+			catch (DbUpdateException ex)
+			{
+				return StatusCode(500, new { message = "Lỗi khi cập nhật thông tin", error = ex.Message });
+			}
+		}
+
+		// API đổi mật khẩu
+		[HttpPut("change-password")]
+		public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+		{
+			// Kiểm tra dữ liệu đầu vào
+			if (string.IsNullOrWhiteSpace(request.OldPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+			{
+				return BadRequest(new { message = "Mật khẩu cũ và mật khẩu mới không được để trống." });
+			}
+
+			// Lấy maKhachHang từ JWT claims
+			var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			if (!int.TryParse(userIdClaim, out int maKhachHang))
+			{
+				return Unauthorized(new { message = "Không xác định được người dùng." });
+			}
+
+			// Tìm khách hàng trong cơ sở dữ liệu
+			var khachHang = await dbContext.Tkhachhangs
+				.FirstOrDefaultAsync(kh => kh.MaKhachHang == maKhachHang);
+			if (khachHang == null)
+			{
+				return NotFound(new { message = "Không tìm thấy người dùng." });
+			}
+
+			// Kiểm tra mật khẩu cũ
+			if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, khachHang.Password))
+			{
+				return BadRequest(new { message = "Mật khẩu cũ không đúng." });
+			}
+
+			// Kiểm tra độ dài mật khẩu mới (tùy chọn)
+			if (request.NewPassword.Length < 6)
+			{
+				return BadRequest(new { message = "Mật khẩu mới phải có ít nhất 6 ký tự." });
+			}
+
+			// Cập nhật mật khẩu mới (băm mật khẩu trước khi lưu)
+			khachHang.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+			dbContext.Tkhachhangs.Update(khachHang);
+			await dbContext.SaveChangesAsync();
+
+			return Ok(new { message = "Đổi mật khẩu thành công." });
+		}
+
 	}
 }

@@ -170,6 +170,8 @@ namespace ToHeBE.Controllers
 			}
 		}
 		// Endpoint mới để lấy danh sách hóa đơn
+		
+		
 		[HttpGet]
 		public async Task<IActionResult> GetList()
 		{
@@ -195,6 +197,7 @@ namespace ToHeBE.Controllers
 					h.Status,
 					ChiTietHoaDon = h.Tchitiethdbs.Select(c => new
 					{
+						c.MaChiTietHdb,
 						c.MaSanPham,
 						c.Sl,
 						c.ThanhTien,

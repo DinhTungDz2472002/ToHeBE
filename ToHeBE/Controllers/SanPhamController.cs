@@ -62,7 +62,7 @@ namespace ToHeBE.Controllers
 
 			return Ok(response);
 		}
-		// Get product by ID with its details (ChiTietSp) for editing
+		//2 Get product by ID with its details (ChiTietSp) for editing
         [HttpGet]
         [Route("/SanPham/GetById")]
         public async Task<IActionResult> GetById([FromQuery] int id)
@@ -105,143 +105,106 @@ namespace ToHeBE.Controllers
             return Ok(dto);
         }
 
-		// 2. Tìm kiếm sản phẩm
+		/*3 thêm sản phẩm*/
 		[HttpPost]
-		[Route("/SanPham/Search")]
-		public async Task<IActionResult> Search([FromQuery] string s)
-		{
-			if (string.IsNullOrWhiteSpace(s))
-				return BadRequest("Từ khóa tìm kiếm không hợp lệ.");
-
-			bool isInt = int.TryParse(s, out int number);
-
-			var sps = await dbContext.Tsanphams.Where(sp => sp.Status).ToListAsync(); ;
-
-			var filtered = sps.Where(sp =>
-				(isInt && sp.MaSanPham == number) ||
-				(!string.IsNullOrEmpty(sp.TenSanPham) && sp.TenSanPham.ToLower().Contains(s.ToLower())) ||
-				(!string.IsNullOrEmpty(sp.MoTaSp) && sp.MoTaSp.ToLower().Contains(s.ToLower()))
-			).ToList();
-
-			var dtoList = filtered.Select(sp => new SanPhamDto
-			{
-				MaSanPham = sp.MaSanPham,
-				TenSanPham = sp.TenSanPham,
-				GiaSanPham = sp.GiaSanPham,
-				MaLoai = sp.MaLoai,
-				SLtonKho = sp.SLtonKho,
-				AnhSp = sp.AnhSp,
-				MoTaSp = sp.MoTaSp,
-				NgayThemSp = sp.NgayThemSp,
-				Status = sp.Status
-			}).ToList();
-
-			return Ok(dtoList);
-		}
-		
-		/*[HttpPost]
 		[Route("/SanPham/Create")]
 		public async Task<IActionResult> Create([FromForm] SanPhamDto dto)
 		{
 			try
 			{
-				// Kiểm tra dữ liệu đầu vào
+				// Validate input
 				if (!ModelState.IsValid)
 					return BadRequest(ModelState);
 
+				// Validate foreign keys
+				if (!await dbContext.Tloais.AnyAsync(l => l.MaLoai == dto.MaLoai))
+					return BadRequest("Loại sản phẩm không tồn tại.");
+
+				foreach (var chiTiet in dto.ChiTietSps)
+				{
+					if (!await dbContext.Tmaus.AnyAsync(m => m.MaMau == chiTiet.MaMau))
+						return BadRequest($"Màu sắc với ID {chiTiet.MaMau} không tồn tại.");
+					if (!await dbContext.Tchatlieus.AnyAsync(c => c.MaCl == chiTiet.MaCl))
+						return BadRequest($"Chất liệu với ID {chiTiet.MaCl} không tồn tại.");
+				}
+
+				// Handle main product image
 				string? imagePath = null;
 				if (dto.File != null && dto.File.Length > 0)
 				{
-					// Đường dẫn thư mục lưu ảnh
 					var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
 					if (!Directory.Exists(uploadPath))
 						Directory.CreateDirectory(uploadPath);
 
-					// Tạo tên file duy nhất
 					var fileName = $"{Guid.NewGuid()}_{dto.File.FileName}";
 					var filePath = Path.Combine(uploadPath, fileName);
 
-					// Lưu file vào thư mục
 					using (var stream = new FileStream(filePath, FileMode.Create))
 					{
 						await dto.File.CopyToAsync(stream);
 					}
-
-					// Lưu đường dẫn tương đối để lưu vào DB
-					imagePath = $"{fileName}";
+					imagePath = fileName;
 				}
 
-				// Tạo đối tượng sản phẩm
+				// Create product
 				var sp = new Tsanpham
 				{
 					TenSanPham = dto.TenSanPham,
 					GiaSanPham = dto.GiaSanPham,
 					MaLoai = dto.MaLoai,
 					SLtonKho = dto.SLtonKho,
-					AnhSp = imagePath, // Lưu đường dẫn ảnh
+					AnhSp = imagePath,
 					MoTaSp = dto.MoTaSp,
 					NgayThemSp = dto.NgayThemSp ?? DateTime.Now,
 					Status = true
 				};
 
-				// Thêm vào DB
 				await dbContext.Tsanphams.AddAsync(sp);
 				await dbContext.SaveChangesAsync();
 
-				// Cập nhật DTO để trả về
-				dto.MaSanPham = sp.MaSanPham;
-				dto.AnhSp = sp.AnhSp;
-				dto.Status = true;
-
-				return Ok(dto);
-			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, $"Lỗi server: {ex.Message}");
-			}
-		}
-*/
-		
-		/*[HttpPut]
-		[Route("/SanPham/Update")]
-		public async Task<IActionResult> Update([FromForm] SanPhamDto dto)
-		{
-			try
-			{
-				var sp = await dbContext.Tsanphams.FirstOrDefaultAsync(x => x.MaSanPham == dto.MaSanPham && x.Status);
-				if (sp == null)
-					return NotFound("Không tìm thấy sản phẩm cần cập nhật.");
-
-				string? imagePath = sp.AnhSp;
-				if (dto.File != null && dto.File.Length > 0)
+				// Handle product details
+				foreach (var chiTietDto in dto.ChiTietSps)
 				{
-					var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
-					if (!Directory.Exists(uploadPath))
-						Directory.CreateDirectory(uploadPath);
-
-					var fileName = $"{Guid.NewGuid()}_{dto.File.FileName}";
-					var filePath = Path.Combine(uploadPath, fileName);
-
-					using (var stream = new FileStream(filePath, FileMode.Create))
+					string? detailImagePath = null;
+					if (chiTietDto.AnhChiTietSpFile != null && chiTietDto.AnhChiTietSpFile.Length > 0)
 					{
-						await dto.File.CopyToAsync(stream);
+						var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
+						var fileName = $"{Guid.NewGuid()}_{chiTietDto.AnhChiTietSpFile.FileName}";
+						var filePath = Path.Combine(uploadPath, fileName);
+
+						using (var stream = new FileStream(filePath, FileMode.Create))
+						{
+							await chiTietDto.AnhChiTietSpFile.CopyToAsync(stream);
+						}
+						detailImagePath = fileName;
 					}
 
-					imagePath = fileName;
+					var chiTiet = new TchitietSp
+					{
+						MaSanPham = sp.MaSanPham,
+						MaMau = chiTietDto.MaMau,
+						MaCl = chiTietDto.MaCl,
+						GiamGiaSp = chiTietDto.GiamGiaSp,
+						AnhChiTietSp = detailImagePath
+					};
+					await dbContext.TchitietSps.AddAsync(chiTiet);
 				}
-
-				sp.TenSanPham = dto.TenSanPham;
-				sp.GiaSanPham = dto.GiaSanPham;
-				sp.MaLoai = dto.MaLoai;
-				sp.SLtonKho = dto.SLtonKho;
-				sp.AnhSp = imagePath;
-				sp.MoTaSp = dto.MoTaSp;
-				sp.NgayThemSp = dto.NgayThemSp ?? sp.NgayThemSp;
-				sp.Status = dto.Status;
 
 				await dbContext.SaveChangesAsync();
 
+				// Update DTO to return
+				dto.MaSanPham = sp.MaSanPham;
 				dto.AnhSp = sp.AnhSp;
+				dto.Status = sp.Status;
+				foreach (var chiTietDto in dto.ChiTietSps)
+				{
+					var chiTiet = await dbContext.TchitietSps
+						.FirstOrDefaultAsync(c => c.MaSanPham == sp.MaSanPham && c.MaMau == chiTietDto.MaMau && c.MaCl == chiTietDto.MaCl);
+					if (chiTiet != null)
+						chiTietDto.MaChiTietSp = chiTiet.MaChiTietSp;
+					chiTietDto.AnhChiTietSp = chiTiet?.AnhChiTietSp;
+				}
+
 				return Ok(dto);
 			}
 			catch (Exception ex)
@@ -249,22 +212,9 @@ namespace ToHeBE.Controllers
 				return StatusCode(500, $"Lỗi server: {ex.Message}");
 			}
 		}
-*/
-		// 6. "Xóa" sản phẩm (chuyển Status = false)
-		[HttpDelete]
-		[Route("/SanPham/Delete")]
-		public async Task<IActionResult> Delete([FromQuery] int id)
-		{
-			var sp = await dbContext.Tsanphams.FirstOrDefaultAsync(x => x.MaSanPham == id && x.Status);
-			if (sp == null)
-				return NotFound("Không tìm thấy sản phẩm cần xóa.");
 
-			sp.Status = false; // Chuyển trạng thái
-			await dbContext.SaveChangesAsync();
-
-			return Ok("Đã xóa sản phẩm thành công.");
-		}
 		[HttpPut]
+		/*4,Cập nhật Sản Phẩm*/
 		[Route("/SanPham/Update")]
 		public async Task<IActionResult> Update([FromForm] SanPhamDto dto)
 		{
@@ -400,113 +350,57 @@ namespace ToHeBE.Controllers
 				return StatusCode(500, $"Lỗi server: {ex.Message}");
 			}
 		}
-		
+
+
+		// 5. Tìm kiếm sản phẩm
 		[HttpPost]
-		[Route("/SanPham/Create")]
-		public async Task<IActionResult> Create([FromForm] SanPhamDto dto)
+		[Route("/SanPham/Search")]
+		public async Task<IActionResult> Search([FromQuery] string s)
 		{
-			try
+			if (string.IsNullOrWhiteSpace(s))
+				return BadRequest("Từ khóa tìm kiếm không hợp lệ.");
+
+			bool isInt = int.TryParse(s, out int number);
+
+			var sps = await dbContext.Tsanphams.Where(sp => sp.Status).ToListAsync(); ;
+
+			var filtered = sps.Where(sp =>
+				(isInt && sp.MaSanPham == number) ||
+				(!string.IsNullOrEmpty(sp.TenSanPham) && sp.TenSanPham.ToLower().Contains(s.ToLower())) ||
+				(!string.IsNullOrEmpty(sp.MoTaSp) && sp.MoTaSp.ToLower().Contains(s.ToLower()))
+			).ToList();
+
+			var dtoList = filtered.Select(sp => new SanPhamDto
 			{
-				// Validate input
-				if (!ModelState.IsValid)
-					return BadRequest(ModelState);
+				MaSanPham = sp.MaSanPham,
+				TenSanPham = sp.TenSanPham,
+				GiaSanPham = sp.GiaSanPham,
+				MaLoai = sp.MaLoai,
+				SLtonKho = sp.SLtonKho,
+				AnhSp = sp.AnhSp,
+				MoTaSp = sp.MoTaSp,
+				NgayThemSp = sp.NgayThemSp,
+				Status = sp.Status
+			}).ToList();
 
-				// Validate foreign keys
-				if (!await dbContext.Tloais.AnyAsync(l => l.MaLoai == dto.MaLoai))
-					return BadRequest("Loại sản phẩm không tồn tại.");
-
-				foreach (var chiTiet in dto.ChiTietSps)
-				{
-					if (!await dbContext.Tmaus.AnyAsync(m => m.MaMau == chiTiet.MaMau))
-						return BadRequest($"Màu sắc với ID {chiTiet.MaMau} không tồn tại.");
-					if (!await dbContext.Tchatlieus.AnyAsync(c => c.MaCl == chiTiet.MaCl))
-						return BadRequest($"Chất liệu với ID {chiTiet.MaCl} không tồn tại.");
-				}
-
-				// Handle main product image
-				string? imagePath = null;
-				if (dto.File != null && dto.File.Length > 0)
-				{
-					var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
-					if (!Directory.Exists(uploadPath))
-						Directory.CreateDirectory(uploadPath);
-
-					var fileName = $"{Guid.NewGuid()}_{dto.File.FileName}";
-					var filePath = Path.Combine(uploadPath, fileName);
-
-					using (var stream = new FileStream(filePath, FileMode.Create))
-					{
-						await dto.File.CopyToAsync(stream);
-					}
-					imagePath = fileName;
-				}
-
-				// Create product
-				var sp = new Tsanpham
-				{
-					TenSanPham = dto.TenSanPham,
-					GiaSanPham = dto.GiaSanPham,
-					MaLoai = dto.MaLoai,
-					SLtonKho = dto.SLtonKho,
-					AnhSp = imagePath,
-					MoTaSp = dto.MoTaSp,
-					NgayThemSp = dto.NgayThemSp ?? DateTime.Now,
-					Status = true
-				};
-
-				await dbContext.Tsanphams.AddAsync(sp);
-				await dbContext.SaveChangesAsync();
-
-				// Handle product details
-				foreach (var chiTietDto in dto.ChiTietSps)
-				{
-					string? detailImagePath = null;
-					if (chiTietDto.AnhChiTietSpFile != null && chiTietDto.AnhChiTietSpFile.Length > 0)
-					{
-						var uploadPath = @"D:\tohe_fe\to_he_fe\public\assets\images";
-						var fileName = $"{Guid.NewGuid()}_{chiTietDto.AnhChiTietSpFile.FileName}";
-						var filePath = Path.Combine(uploadPath, fileName);
-
-						using (var stream = new FileStream(filePath, FileMode.Create))
-						{
-							await chiTietDto.AnhChiTietSpFile.CopyToAsync(stream);
-						}
-						detailImagePath = fileName;
-					}
-
-					var chiTiet = new TchitietSp
-					{
-						MaSanPham = sp.MaSanPham,
-						MaMau = chiTietDto.MaMau,
-						MaCl = chiTietDto.MaCl,
-						GiamGiaSp = chiTietDto.GiamGiaSp,
-						AnhChiTietSp = detailImagePath
-					};
-					await dbContext.TchitietSps.AddAsync(chiTiet);
-				}
-
-				await dbContext.SaveChangesAsync();
-
-				// Update DTO to return
-				dto.MaSanPham = sp.MaSanPham;
-				dto.AnhSp = sp.AnhSp;
-				dto.Status = sp.Status;
-				foreach (var chiTietDto in dto.ChiTietSps)
-				{
-					var chiTiet = await dbContext.TchitietSps
-						.FirstOrDefaultAsync(c => c.MaSanPham == sp.MaSanPham && c.MaMau == chiTietDto.MaMau && c.MaCl == chiTietDto.MaCl);
-					if (chiTiet != null)
-						chiTietDto.MaChiTietSp = chiTiet.MaChiTietSp;
-					chiTietDto.AnhChiTietSp = chiTiet?.AnhChiTietSp;
-				}
-
-				return Ok(dto);
-			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, $"Lỗi server: {ex.Message}");
-			}
+			return Ok(dtoList);
 		}
+		
+		// 6. "Xóa" sản phẩm (chuyển Status = false)
+		[HttpDelete]
+		[Route("/SanPham/Delete")]
+		public async Task<IActionResult> Delete([FromQuery] int id)
+		{
+			var sp = await dbContext.Tsanphams.FirstOrDefaultAsync(x => x.MaSanPham == id && x.Status);
+			if (sp == null)
+				return NotFound("Không tìm thấy sản phẩm cần xóa.");
+
+			sp.Status = false; // Chuyển trạng thái
+			await dbContext.SaveChangesAsync();
+
+			return Ok("Đã xóa sản phẩm thành công.");
+		}
+				
 
 	}
 

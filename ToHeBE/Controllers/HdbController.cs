@@ -24,7 +24,6 @@ namespace ToHeBE.Controllers
 		// Get All with Pagination
 		// Get All with Pagination
 		[HttpGet("GetChoGiaoHang")]
-
 		public async Task<IActionResult> Get_Cho_Giao_Hang([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
 			if (pageNumber <= 0 || pageSize <= 0)
@@ -83,8 +82,9 @@ namespace ToHeBE.Controllers
 				hoaDons = hdbDto
 			});
 		}
-		[HttpGet("GetChoXacNhan")]
 
+
+		[HttpGet("GetChoXacNhan")]
 		public async Task<IActionResult> Get_Cho_Xac_Nhan([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
 			if (pageNumber <= 0 || pageSize <= 0)
@@ -144,8 +144,8 @@ namespace ToHeBE.Controllers
 			});
 		}
 
+		/*Khách đã giao*/
 		[HttpGet("GetDaGiao")]
-
 		public async Task<IActionResult> Get_Da_Giao([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
 			if (pageNumber <= 0 || pageSize <= 0)
@@ -204,8 +204,9 @@ namespace ToHeBE.Controllers
 				hoaDons = hdbDto
 			});
 		}
-		[HttpGet("GetDaHuy")]
 
+		/*Khách đã hủy*/
+		[HttpGet("GetDaHuy")]
 		public async Task<IActionResult> Get_Da_Huy([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
 			if (pageNumber <= 0 || pageSize <= 0)
@@ -265,8 +266,10 @@ namespace ToHeBE.Controllers
 			});
 		}
 
-		[HttpGet("GetKhachMuonHuy")]
 
+
+		/*Khách muốn hủy*/
+		[HttpGet("GetKhachMuonHuy")]
 		public async Task<IActionResult> Get_Khach_Muon_Huy([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
 			if (pageNumber <= 0 || pageSize <= 0)
@@ -325,9 +328,10 @@ namespace ToHeBE.Controllers
 				hoaDons = hdbDto
 			});
 		}
+		
+		
 		// Search
 		[HttpPost("TimKiem")]
-
 		public async Task<IActionResult> TimKiem([FromQuery] string s)
 		{
 			if (string.IsNullOrWhiteSpace(s))
@@ -383,9 +387,10 @@ namespace ToHeBE.Controllers
 
 			return Ok(new { message = "Tìm kiếm hóa đơn thành công", hoaDons = hdbDto });
 		}
+
+
 		
 		[HttpPut("UpdateChoGiaoHang")]
-
 		public async Task<IActionResult> UpdateChoGiaoHang([FromQuery] int maHdb)
 		{
 			var hdb = await dbContext.Thdbs
@@ -424,6 +429,8 @@ namespace ToHeBE.Controllers
 			await dbContext.SaveChangesAsync();
 			return Ok(hdb);
 		}
+
+
 		[HttpPut("UpdateDaHuy")]
 		public async Task<IActionResult> Update_Da_Huy([FromQuery] int maHdb)
 		{
@@ -438,6 +445,7 @@ namespace ToHeBE.Controllers
 			await dbContext.SaveChangesAsync();
 			return Ok(hdb);
 		}
+
 
 		[HttpPut("UpdateKhachMuonHuy")]
 		public async Task<IActionResult> Update_Khach_Muon_Huy([FromQuery] int maHdb)
