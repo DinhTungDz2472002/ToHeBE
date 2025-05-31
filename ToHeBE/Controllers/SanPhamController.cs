@@ -17,7 +17,6 @@ namespace ToHeBE.Controllers
 			this.dbContext = dbContext;
 		}
 		// 1. Lấy danh sách sản phẩm có phân trang (chỉ lấy Status = true)[
-		
 		[HttpGet]
 		[Route("/SanPham/GetList")]
 		public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -62,6 +61,7 @@ namespace ToHeBE.Controllers
 
 			return Ok(response);
 		}
+		
 		//2 Get product by ID with its details (ChiTietSp) for editing
         [HttpGet]
         [Route("/SanPham/GetById")]
@@ -353,22 +353,34 @@ namespace ToHeBE.Controllers
 
 
 		// 5. Tìm kiếm sản phẩm
+
 		[HttpPost]
 		[Route("/SanPham/Search")]
-		public async Task<IActionResult> Search([FromQuery] string s)
+		public async Task<IActionResult> Search([FromQuery] string? s, [FromQuery] int? maLoai)
 		{
-			if (string.IsNullOrWhiteSpace(s))
-				return BadRequest("Từ khóa tìm kiếm không hợp lệ.");
+			if (string.IsNullOrWhiteSpace(s) && !maLoai.HasValue)
+				return BadRequest("Cần cung cấp từ khóa tìm kiếm hoặc loại sản phẩm.");
 
-			bool isInt = int.TryParse(s, out int number);
+			var sps = dbContext.Tsanphams
+				.Where(sp => sp.Status)
+				.Include(sp => sp.MaLoaiNavigation)
+				.Include(sp => sp.TchitietSps)
+				.AsQueryable();
 
-			var sps = await dbContext.Tsanphams.Where(sp => sp.Status).ToListAsync(); ;
+			if (!string.IsNullOrWhiteSpace(s))
+			{
+				sps = sps.Where(sp =>
+					(!string.IsNullOrEmpty(sp.TenSanPham) && sp.TenSanPham.ToLower().Contains(s.ToLower())) ||
+					(sp.MaLoaiNavigation != null && !string.IsNullOrEmpty(sp.MaLoaiNavigation.TenLoai) &&
+					 sp.MaLoaiNavigation.TenLoai.ToLower().Contains(s.ToLower())));
+			}
 
-			var filtered = sps.Where(sp =>
-				(isInt && sp.MaSanPham == number) ||
-				(!string.IsNullOrEmpty(sp.TenSanPham) && sp.TenSanPham.ToLower().Contains(s.ToLower())) ||
-				(!string.IsNullOrEmpty(sp.MoTaSp) && sp.MoTaSp.ToLower().Contains(s.ToLower()))
-			).ToList();
+			if (maLoai.HasValue)
+			{
+				sps = sps.Where(sp => sp.MaLoai == maLoai.Value);
+			}
+
+			var filtered = await sps.ToListAsync();
 
 			var dtoList = filtered.Select(sp => new SanPhamDto
 			{
@@ -385,7 +397,9 @@ namespace ToHeBE.Controllers
 
 			return Ok(dtoList);
 		}
-		
+
+
+
 		// 6. "Xóa" sản phẩm (chuyển Status = false)
 		[HttpDelete]
 		[Route("/SanPham/Delete")]

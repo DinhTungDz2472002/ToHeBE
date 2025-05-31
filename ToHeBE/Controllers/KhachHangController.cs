@@ -252,7 +252,7 @@ namespace ToHeBE.Controllers
 			}
 		}
 
-		// Reset Password API
+		// Reset Password API khi quên
 		[HttpPost("reset-password")]
 		public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
 		{
@@ -280,7 +280,7 @@ namespace ToHeBE.Controllers
 			return Ok(new { message = "Mật khẩu đã được đặt lại thành công" });
 		}
 
-
+		[Authorize]
 		[HttpPut("{id}")]
 		public async Task<IActionResult> UpdateKhachHang(int id, [FromBody] KhachHangUpdateDto khachHangDto)
 		{
@@ -335,6 +335,7 @@ namespace ToHeBE.Controllers
 			}
 		}
 
+		[Authorize]
 		// API đổi mật khẩu
 		[HttpPut("change-password")]
 		public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
