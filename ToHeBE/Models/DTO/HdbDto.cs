@@ -39,6 +39,8 @@ namespace ToHeBE.Models.DTO
 
 	public class ChiTietHdbDto
 	{
+		[Column("maChiTietHDB")]
+		public int MaChiTietHdb { get; set; } /**/
 		[Column("maSanPham")]
 		public int MaSanPham { get; set; }
 

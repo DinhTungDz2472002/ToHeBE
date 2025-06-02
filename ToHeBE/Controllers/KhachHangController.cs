@@ -130,7 +130,7 @@ namespace ToHeBE.Controllers
 				return NotFound();
 
 			return Ok(new
-			{	/*khachHang.Role,*/
+			{   /*khachHang.Role,*/
 				khachHang.MaKhachHang,
 				khachHang.TenKhachHang,
 				khachHang.Email,
@@ -381,5 +381,38 @@ namespace ToHeBE.Controllers
 			return Ok(new { message = "Đổi mật khẩu thành công." });
 		}
 
-	}
+
+
+		/*GET: api/KhachHang/{maKhachHang }*/
+	
+	[HttpGet("{maKhachHang}")]
+	public async Task<IActionResult> GetKhachHang(int maKhachHang)
+	{
+	
+
+		try
+			{
+				var khachHang = await dbContext.Tkhachhangs
+					.Where(kh => kh.MaKhachHang == maKhachHang)
+					.Select(kh => new
+					{
+						maKhachHang = kh.MaKhachHang,
+						tenKhachHang = kh.TenKhachHang
+					})
+					.FirstOrDefaultAsync();
+
+				if (khachHang == null)
+				{
+					return NotFound(new { error = $"Không tìm thấy khách hàng với mã {maKhachHang}." });
+				}
+
+				return Ok(khachHang);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { error = "Lỗi server khi lấy thông tin khách hàng.", details = ex.Message });
+			}
+		}
+
+}
 }

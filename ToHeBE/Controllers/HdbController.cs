@@ -180,6 +180,7 @@ namespace ToHeBE.Controllers
 				Sdt = hdb.Sdt,
 				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
 				{
+					MaChiTietHdb = c.MaChiTietHdb,
 					MaSanPham = c.MaSanPham,
 					Sl = c.Sl,
 					ThanhTien = c.ThanhTien,

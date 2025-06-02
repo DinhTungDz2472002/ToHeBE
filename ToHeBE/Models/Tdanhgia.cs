@@ -16,15 +16,17 @@ namespace ToHeBE.Models
         public int MaSanPham { get; set; }
         [Column("maKhachHang")]
         public int? MaKhachHang { get; set; }
-        [Column("danhGia")]
+		[Column("maChiTietHDB")]
+		public int MaChiTietHdb { get; set; }
+		[Column("danhGia")]
         public int? DanhGia { get; set; }
         [Column("binhLuan")]
         [StringLength(300)]
         public string? BinhLuan { get; set; }
         [Column("ngayDanhGia", TypeName = "datetime")]
         public DateTime? NgayDanhGia { get; set; }
-
-        [ForeignKey(nameof(MaKhachHang))]
+		
+		[ForeignKey(nameof(MaKhachHang))]
         [InverseProperty(nameof(Tkhachhang.Tdanhgias))]
         public virtual Tkhachhang? MaKhachHangNavigation { get; set; }
         [ForeignKey(nameof(MaSanPham))]

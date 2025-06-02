@@ -197,6 +197,7 @@ namespace ToHeBE.Controllers
 				Sdt = hdb.Sdt,
 				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
 				{
+					MaChiTietHdb = c.MaChiTietHdb,
 					MaSanPham = c.MaSanPham,
 					Sl = c.Sl,
 					ThanhTien = c.ThanhTien ?? 0, // Default to 0 if null
