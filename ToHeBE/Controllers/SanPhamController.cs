@@ -23,45 +23,64 @@ namespace ToHeBE.Controllers
 		{
 			if (pageNumber <= 0 || pageSize <= 0)
 				return BadRequest("Số trang và kích thước trang phải lớn hơn 0.");
+			// Step 1: Get delivered orders
+			var deliveredOrders = dbContext.Thdbs
+				.Where(hd => hd.Status == "Đã Giao")
+				.Select(hd => hd.MaHdb);
 
 			var query = dbContext.Tsanphams.Where(sp => sp.Status);
 
 			var totalItems = await query.CountAsync();
 			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
 
-			var sps = await query
+
+
+			// Step 2: Get all products with their sales, revenue, and details
+			var products = await dbContext.Tsanphams
+				.Where(sp => sp.Status)
 				.OrderByDescending(sp => sp.NgayThemSp) // Sắp xếp theo ngày thêm mới nhất trước
 				.Skip((pageNumber - 1) * pageSize)
-				
+
 				.Take(pageSize)
+
+				.Select(sp => new
+				{
+					sp.MaSanPham,
+					sp.TenSanPham,
+					sp.GiaSanPham,
+					sp.MaLoai,
+					sp.SLtonKho,
+					sp.AnhSp,
+					sp.MoTaSp,
+					sp.NgayThemSp,
+					sp.Status,
+					LuotBan = dbContext.Tchitiethdbs
+							.Where(ct => ct.MaSanPham == sp.MaSanPham && deliveredOrders.Contains(ct.MaHdb))
+							.Sum(ct => (int?)ct.Sl) ?? 0,
+					SoSaoTrungBinh = dbContext.Tdanhgias
+						.Where(dg => dg.MaSanPham == sp.MaSanPham)
+						.Average(dg => (double?)dg.DanhGia) ?? 0.0,
+					ChiTietSps = sp.TchitietSps.Select(ct => new
+					{
+						ct.MaChiTietSp,
+						ct.AnhChiTietSp,
+						ct.GiamGiaSp
+					}).ToList(),
+					LoaiSanPham = sp.MaLoaiNavigation.TenLoai // Assuming Tloai has a TenLoai property
+				})
 				.ToListAsync();
-
-			var dtoList = sps
-				.Select(sp => new SanPhamDto
-			{
-				MaSanPham = sp.MaSanPham,
-				TenSanPham = sp.TenSanPham,
-				GiaSanPham = sp.GiaSanPham,
-				MaLoai = sp.MaLoai,
-				SLtonKho = sp.SLtonKho,
-				AnhSp = sp.AnhSp,
-				MoTaSp = sp.MoTaSp,
-				NgayThemSp = sp.NgayThemSp,
-				Status = sp.Status
-			}).ToList();
-
 			var response = new
 			{
 				CurrentPage = pageNumber,
 				PageSize = pageSize,
 				TotalItems = totalItems,
 				TotalPages = totalPages,
-				Items = dtoList
+				Items = products
 			};
 
 			return Ok(response);
 		}
-		
+
 		//2 Get product by ID with its details (ChiTietSp) for editing
         [HttpGet]
         [Route("/SanPham/GetById")]
@@ -353,8 +372,140 @@ namespace ToHeBE.Controllers
 
 
 		// 5. Tìm kiếm sản phẩm
-
 		[HttpPost]
+		[Route("/SanPham/Search")]
+		public async Task<IActionResult> Search([FromQuery] string? s, [FromQuery] int? maLoai)
+		{
+			if (string.IsNullOrWhiteSpace(s) && !maLoai.HasValue)
+				return BadRequest("Cần cung cấp từ khóa tìm kiếm hoặc loại sản phẩm.");
+
+			// Get IDs of delivered orders
+			var deliveredOrders = await dbContext.Thdbs
+				.Where(hd => hd.Status == "Đã Giao")
+				.Select(hd => hd.MaHdb)
+				.ToListAsync();
+
+			// Build query for products
+			var sps = dbContext.Tsanphams
+				.Where(sp => sp.Status)
+				.Include(sp => sp.MaLoaiNavigation)
+				.Include(sp => sp.TchitietSps)
+				.AsQueryable();
+
+			// Apply search filters
+			if (!string.IsNullOrWhiteSpace(s))
+			{
+				sps = sps.Where(sp =>
+					EF.Functions.Like(sp.TenSanPham, $"%{s}%") ||
+					(sp.MaLoaiNavigation != null && EF.Functions.Like(sp.MaLoaiNavigation.TenLoai, $"%{s}%")));
+			}
+
+			if (maLoai.HasValue)
+			{
+				sps = sps.Where(sp => sp.MaLoai == maLoai.Value);
+			}
+
+			// Execute query and project results
+			var products = await sps
+				.OrderByDescending(sp => sp.NgayThemSp)
+				.Select(sp => new
+				{
+					sp.MaSanPham,
+					sp.TenSanPham,
+					sp.GiaSanPham,
+					sp.MaLoai,
+					sp.SLtonKho,
+					sp.AnhSp,
+					sp.MoTaSp,
+					sp.NgayThemSp,
+					sp.Status,
+					LuotBan = dbContext.Tchitiethdbs
+						.Where(ct => ct.MaSanPham == sp.MaSanPham && deliveredOrders.Contains(ct.MaHdb))
+						.Sum(ct => (int?)ct.Sl) ?? 0,
+					SoSaoTrungBinh = dbContext.Tdanhgias
+						.Where(dg => dg.MaSanPham == sp.MaSanPham)
+						.Average(dg => (double?)dg.DanhGia) ?? 0.0,
+					ChiTietSps = sp.TchitietSps.Select(ct => new
+					{
+						ct.MaChiTietSp,
+						ct.AnhChiTietSp,
+						ct.GiamGiaSp
+					}).ToList(),
+					LoaiSanPham = sp.MaLoaiNavigation != null ? sp.MaLoaiNavigation.TenLoai : null
+				})
+				.ToListAsync();
+
+			return Ok(products);
+		}
+
+
+		// 6. "Xóa" sản phẩm (chuyển Status = false)
+		[HttpDelete]
+		[Route("/SanPham/Delete")]
+		public async Task<IActionResult> Delete([FromQuery] int id)
+		{
+			var sp = await dbContext.Tsanphams.FirstOrDefaultAsync(x => x.MaSanPham == id && x.Status);
+			if (sp == null)
+				return NotFound("Không tìm thấy sản phẩm cần xóa.");
+
+			sp.Status = false; // Chuyển trạng thái
+			await dbContext.SaveChangesAsync();
+
+			return Ok("Đã xóa sản phẩm thành công.");
+		}
+
+
+		/* getlist k có lượt bán, tên loại ban đầu 2/6/2025*/
+		/*[HttpGet]
+		[Route("/SanPham/GetList")]
+		public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+		{
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest("Số trang và kích thước trang phải lớn hơn 0.");
+
+			var query = dbContext.Tsanphams.Where(sp => sp.Status);
+
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+			var sps = await query
+				.OrderByDescending(sp => sp.NgayThemSp) // Sắp xếp theo ngày thêm mới nhất trước
+				.Skip((pageNumber - 1) * pageSize)
+
+				.Take(pageSize)
+				.ToListAsync();
+
+			var dtoList = sps
+				.Select(sp => new SanPhamDto
+				{
+					MaSanPham = sp.MaSanPham,
+					TenSanPham = sp.TenSanPham,
+					GiaSanPham = sp.GiaSanPham,
+					MaLoai = sp.MaLoai,
+					SLtonKho = sp.SLtonKho,
+					AnhSp = sp.AnhSp,
+					MoTaSp = sp.MoTaSp,
+					NgayThemSp = sp.NgayThemSp,
+					Status = sp.Status
+				}).ToList();
+
+			var response = new
+			{
+				CurrentPage = pageNumber,
+				PageSize = pageSize,
+				TotalItems = totalItems,
+				TotalPages = totalPages,
+				Items = dtoList
+			};
+
+			return Ok(response);
+		}
+
+*/
+
+		/* search theo loại và tên k có lượt bán, tên loại ban đầu 2/6/2025*/
+
+		/*[HttpPost]
 		[Route("/SanPham/Search")]
 		public async Task<IActionResult> Search([FromQuery] string? s, [FromQuery] int? maLoai)
 		{
@@ -397,25 +548,7 @@ namespace ToHeBE.Controllers
 
 			return Ok(dtoList);
 		}
-
-
-
-		// 6. "Xóa" sản phẩm (chuyển Status = false)
-		[HttpDelete]
-		[Route("/SanPham/Delete")]
-		public async Task<IActionResult> Delete([FromQuery] int id)
-		{
-			var sp = await dbContext.Tsanphams.FirstOrDefaultAsync(x => x.MaSanPham == id && x.Status);
-			if (sp == null)
-				return NotFound("Không tìm thấy sản phẩm cần xóa.");
-
-			sp.Status = false; // Chuyển trạng thái
-			await dbContext.SaveChangesAsync();
-
-			return Ok("Đã xóa sản phẩm thành công.");
-		}
-				
-
+*/
 	}
 
 

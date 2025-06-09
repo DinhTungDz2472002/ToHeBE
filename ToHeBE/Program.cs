@@ -38,8 +38,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddSingleton<EmailService>(); /*cấu hình gửi mail*/
 
 
-
 var app = builder.Build();
+
 app.UseCors(builder => builder.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -47,20 +47,14 @@ if (app.Environment.IsDevelopment())
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
+
 // Thêm middleware để phục vụ tệp tĩnh
 app.UseStaticFiles();
 /**/
-
-
 app.UseRouting();
-
 app.UseHttpsRedirection();
-
-
 app.UseAuthentication(); // THIẾU DÒNG NÀY()
 app.UseAuthorization();
-
-
 app.MapControllers();
 
 app.Run();
