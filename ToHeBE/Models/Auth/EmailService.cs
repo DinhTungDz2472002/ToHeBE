@@ -55,6 +55,8 @@ namespace ToHeBE.Models.Auth
 				),
 				EnableSsl = true
 			};
+			// Use a configuration variable for the image base URL
+			var imageBaseUrl = _configuration["ImageSettings:BaseUrl"] ?? "http://localhost:3000"; // Fallback to localhost:3000 for development
 
 			var bodyBuilder = new StringBuilder();
 			bodyBuilder.AppendLine("<!DOCTYPE html>");
@@ -68,7 +70,7 @@ namespace ToHeBE.Models.Auth
 
 			// Header với logo
 			bodyBuilder.AppendLine("<div style='text-align: center; margin-bottom: 20px;'>");
-			bodyBuilder.AppendLine("<img src='http://localhost:3000/assets/images/logo.png' alt='Your App Name' style='max-width: 150px; height: auto;'>");
+			bodyBuilder.AppendLine("<img src='{imageBaseUrl}/assets/images/logo.png' alt='Your App Name' style='max-width: 150px; height: auto;'>");
 			bodyBuilder.AppendLine("<h2 style='color: #1a73e8;'>Xác Nhận Đơn Hàng</h2>");
 			bodyBuilder.AppendLine("</div>");
 
@@ -103,7 +105,7 @@ namespace ToHeBE.Models.Auth
 				var sanPham = chiTiet.MaSanPhamNavigation;
 				var imageUrl = string.IsNullOrEmpty(sanPham.AnhSp)
 					? "http://localhost:3000/assets/images/placeholder.jpg"
-					: $"http://localhost:3000//assets/images/{HttpUtility.HtmlEncode(sanPham.AnhSp)}";
+					: $"http://localhost:3000/assets/images/{HttpUtility.HtmlEncode(sanPham.AnhSp)}";
 				bodyBuilder.AppendLine("<tr>");
 				bodyBuilder.AppendLine($"<td style='padding: 12px; border: 1px solid #e0e0e0;'>{HttpUtility.HtmlEncode(sanPham.TenSanPham)}</td>");
 				bodyBuilder.AppendLine($"<td style='padding: 12px; border: 1px solid #e0e0e0; text-align: center;'><img src='{imageUrl}' alt='{HttpUtility.HtmlEncode(sanPham.TenSanPham)}' style='max-width: 50px; height: auto; border-radius: 4px;'></td>");
