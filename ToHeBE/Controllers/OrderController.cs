@@ -92,6 +92,7 @@ namespace ToHeBE.Controllers
 					DiaChi = model.DiaChi,
 					Sdt = model.SDT,
 					TenKhachHang = model.TenKhachHang,
+					Pttt = model.Pttt,
 					Status = "Chờ xác nhận",
 					GiamGia = 0, // Có thể thêm logic tính giảm giá nếu cần
 					TongTienHdb = chiTietGioHang.Sum(c => c.DonGia)
@@ -151,6 +152,7 @@ namespace ToHeBE.Controllers
 						hoaDon.TongTienHdb,
 						hoaDon.DiaChi,
 						hoaDon.Sdt,
+						hoaDon.Pttt,
 						hoaDon.Status,
 						ChiTietHoaDon = chiTietHdbList.Select(c => new
 						{

@@ -1,5 +1,6 @@
 ﻿using static ToHeBE.Controllers.OrderController;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ToHeBE.Models.Auth
 {
@@ -15,6 +16,10 @@ namespace ToHeBE.Models.Auth
 		[Required(ErrorMessage = "Số điện thoại là bắt buộc")]
 		[Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
 		public string SDT { get; set; }
+
+		[Column("PTTT")]
+		[StringLength(45)]
+		public string? Pttt { get; set; }
 
 		[Required(ErrorMessage = "Danh sách sản phẩm được chọn là bắt buộc")]
 		public List<SelectedCartItemModel> SelectedItems { get; set; }
