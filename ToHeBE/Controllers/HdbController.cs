@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ToHeBE.Models;
+using ToHeBE.Models.Auth;
 using ToHeBE.Models.DTO;
 
 
@@ -14,11 +15,14 @@ namespace ToHeBE.Controllers
 	public class HdbController : ControllerBase
 	{
 		private readonly ToHeDbContext dbContext;
+		private readonly EmailService _emailService;
 
-		public HdbController(ToHeDbContext dbContext)
+		public HdbController(ToHeDbContext dbContext, EmailService emailService)
 		{
 			this.dbContext = dbContext;
+			_emailService = emailService;
 		}
+
 
 		// Get All
 		[HttpGet("GetChoGiaoHang")]
@@ -387,28 +391,86 @@ namespace ToHeBE.Controllers
 		}
 
 
-		
+
+		//Update chwof giao hàng
 		[HttpPut("UpdateChoGiaoHang")]
 		public async Task<IActionResult> UpdateChoGiaoHang([FromQuery] int maHdb)
 		{
-			var hdb = await dbContext.Thdbs
-				.FirstOrDefaultAsync(x => x.MaHdb == maHdb);
-
-			if (hdb == null)
-				return NotFound(new { message = "Không tìm thấy hóa đơn cần cập nhật." });
-			// Kiểm tra trạng thái hiện tại
-			if ( hdb.Status == "Đã Giao" || hdb.Status == "Đã Hủy")
+			try
 			{
-				return Ok(new { message = "Không thể cập nhật trạng thái thành 'Chờ giao hàng' do trạng thái hiện tại.", currentStatus = hdb.Status });
+				// Load invoice with related data
+				var hdb = await dbContext.Thdbs
+					.Include(x => x.MaKhachHangNavigation)
+					.Include(x => x.Tchitiethdbs)
+						.ThenInclude(x => x.MaSanPhamNavigation)
+					.FirstOrDefaultAsync(x => x.MaHdb == maHdb);
+
+				if (hdb == null)
+					return NotFound(new { message = "Không tìm thấy hóa đơn cần cập nhật." });
+
+				// Check current status
+				if (hdb.Status == "Đã Giao" || hdb.Status == "Đã Hủy")
+				{
+					return BadRequest(new { message = "Không thể cập nhật trạng thái thành 'Chờ giao hàng' do trạng thái hiện tại.", currentStatus = hdb.Status });
+				}
+
+				if (hdb.Pttt == "Chờ thanh toán")
+				{
+					// Fetch invoice details for email
+					var chiTietHdb = await dbContext.Tchitiethdbs
+						.Include(x => x.MaSanPhamNavigation)
+						.Where(x => x.MaHdb == maHdb)
+						.ToListAsync();
+
+					// Get customer email and name
+					string customerEmail = hdb.MaKhachHangNavigation?.Email;
+					string customerName = hdb.MaKhachHangNavigation?.TenKhachHang ?? hdb.TenKhachHang ?? "Khách hàng";
+
+					if (string.IsNullOrEmpty(customerEmail))
+					{
+						return BadRequest(new { message = "Khách hàng chưa thanh toán, nhưng không tìm thấy email để gửi nhắc nhở." });
+					}
+
+					// Send payment reminder email
+					try
+					{
+						await _emailService.SendPaymentReminderEmailAsync(customerEmail, hdb, chiTietHdb, customerName);
+					}
+					catch (Exception ex)
+					{
+						return StatusCode(500, new { message = "Lỗi khi gửi email nhắc nhở thanh toán.", error = ex.Message });
+					}
+
+					return BadRequest(new { message = "Khách hàng chưa thanh toán", currentStatus = hdb.Pttt });
+				}
+
+				// Update status
+				hdb.Status = "Chờ giao hàng";
+				await dbContext.SaveChangesAsync();
+
+				// Map to DTO
+				var hdbDto = new HdbDto
+				{
+					MaHdb = hdb.MaHdb,
+					MaKhachHang = hdb.MaKhachHang,
+					NgayLapHdb = hdb.NgayLapHdb,
+					GiamGia = hdb.GiamGia,
+					Pttt = hdb.Pttt,
+					TongTienHdb = hdb.TongTienHdb ?? 0,
+					Status = hdb.Status,
+					TenKhachHang = hdb.TenKhachHang,
+					DiaChi = hdb.DiaChi,
+					Sdt = hdb.Sdt
+				};
+
+				return Ok(hdbDto);
 			}
-
-			hdb.Status = "Chờ giao hàng";
-
-			await dbContext.SaveChangesAsync();
-			return Ok(hdb);
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = "Lỗi server khi xử lý yêu cầu.", error = ex.Message });
+			}
 		}
 
-	
 		[HttpPut("UpdateDaGiao")]
 		public async Task<IActionResult> Update_Da_Giao([FromQuery] int maHdb)
 		{

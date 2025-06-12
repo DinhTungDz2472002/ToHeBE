@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ToHeBE.Models;
 using System.Security.Claims;
+using ToHeBE.Models.Auth;
 
 namespace ToHeBE.Controllers
 {
@@ -20,7 +21,7 @@ namespace ToHeBE.Controllers
 	{
 		private readonly IConfiguration _config;
 		private readonly ToHeDbContext dbContext;
-
+	
 		public VnPayController(IConfiguration configuration, ToHeDbContext dbContext)
 		{
 			this.dbContext = dbContext;
@@ -28,7 +29,7 @@ namespace ToHeBE.Controllers
 		}
 
 		[HttpPost("create-payment")]
-		public async Task<IActionResult> CreatePayment([FromBody] PaymentRequest request)
+		public async Task<IActionResult> CreatePayment([FromBody] VnpayRequest request)
 		{
 			// Lấy ID khách hàng từ token
 			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -43,13 +44,23 @@ namespace ToHeBE.Controllers
 			{
 				return NotFound(new { code = "404", message = "Khách hàng không tồn tại" });
 			}
-
-			// Tìm hóa đơn mới nhất theo thời gian lập hóa đơn
-			var order = await dbContext.Thdbs
-				.Where(h => h.MaKhachHang == int.Parse(userId) && h.Pttt == "Chờ thanh toán")
-				.OrderByDescending(h => h.NgayLapHdb)
-				.FirstOrDefaultAsync();
-
+			// Tìm hóa đơn
+			Thdb order;
+			if (request.maHdb.HasValue)
+			{
+				// Nếu có maHdb trong request, lấy hóa đơn theo maHdb
+				order = await dbContext.Thdbs
+					.Where(h => h.MaHdb == request.maHdb && h.MaKhachHang == int.Parse(userId) && h.Pttt == "Chờ thanh toán")
+					.FirstOrDefaultAsync();
+			}
+			else
+			{
+				// Nếu không có maHdb, lấy hóa đơn mới nhất theo thời gian lập hóa đơn
+				order = await dbContext.Thdbs
+					.Where(h => h.MaKhachHang == int.Parse(userId) && h.Pttt == "Chờ thanh toán")
+					.OrderByDescending(h => h.NgayLapHdb)
+					.FirstOrDefaultAsync();
+			}
 			if (order == null)
 			{
 				return BadRequest(new { code = "400", message = "Không tìm thấy hóa đơn chờ thanh toán hoặc hóa đơn không hợp lệ!" });
@@ -67,8 +78,10 @@ namespace ToHeBE.Controllers
 				return StatusCode(500, new { code = "500", message = "Cấu hình VnPay không hợp lệ!" });
 			}
 
-			var txnRef = order.MaHdb.ToString();
-			var orderInfo = $"Thanh toan hoa don {order.MaHdb}";
+			//var txnRef = order.MaHdb.ToString();
+			var txnRef = new Random().Next(10000000, 99999999).ToString();
+			//var orderInfo = $"Thanh toan hoa don {order.MaHdb}";
+			var orderInfo = $" {order.MaHdb}";
 			var amount = ((int)(order.TongTienHdb * 100)).ToString(CultureInfo.InvariantCulture); // Use TongTienHdb from order
 			var locale = "vn";
 			var bankCode = "";
@@ -115,6 +128,7 @@ namespace ToHeBE.Controllers
 			var vnp_TxnRef = query["vnp_TxnRef"];
 			var vnp_SecureHash = query["vnp_SecureHash"];
 			var vnp_Amount = query["vnp_Amount"];
+			var vnp_OrderInfo = query["vnp_OrderInfo"];
 
 			// Verify secure hash
 			var inputData = new SortedDictionary<string, string>();
@@ -126,7 +140,7 @@ namespace ToHeBE.Controllers
 			var computedHash = ComputeHash(_config["VnPay:HashSecret"], hashData);
 
 
-			if (!int.TryParse(vnp_TxnRef, out var orderId))
+			if (!int.TryParse(vnp_OrderInfo, out var orderId))
 			{
 				Console.WriteLine($"[{DateTime.UtcNow}] Invalid order ID: {vnp_TxnRef}");
 				return BadRequest(new { code = "400", message = "Mã hóa đơn không hợp lệ!" });
@@ -190,8 +204,5 @@ namespace ToHeBE.Controllers
 		}
 	}
 
-	public class PaymentRequest
-	{
-		public double Amount { get; set; } // Kept for compatibility, but not used
-	}
+	
 }

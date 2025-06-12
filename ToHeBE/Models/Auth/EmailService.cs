@@ -3,6 +3,8 @@ using System.Net;
 using Microsoft.Extensions.Configuration;
 using System.Text;
 using System.Web;
+using System.Net.Http;
+using Newtonsoft.Json.Linq;
 
 namespace ToHeBE.Models.Auth
 {
@@ -43,6 +45,7 @@ namespace ToHeBE.Models.Auth
 
 			await smtpClient.SendMailAsync(mailMessage);
 		}
+
 		/*cấu hình gửi hóa đơn vào email*/
 		public async Task SendOrderConfirmationEmailAsync(string toEmail, Thdb hoaDon, List<Tchitiethdb> chiTietHdb, string tenKhachHang)
 		{
@@ -125,7 +128,7 @@ namespace ToHeBE.Models.Auth
 
 			// Thông tin bổ sung và CTA
 			bodyBuilder.AppendLine("<p style='margin-top: 20px;'>Đơn hàng của bạn đang được xử lý. Bạn có thể theo dõi trạng thái đơn hàng tại:</p>");
-			bodyBuilder.AppendLine($"<a href='http://localhost:3000/orders' style='display: inline-block; padding: 10px 20px; background-color: #1a73e8; color: #fff; text-decoration: none; border-radius: 4px; margin: 10px 0;'>Xem Đơn Hàng</a>");
+			bodyBuilder.AppendLine($"<a href='http://localhost:3000/HoaDon_ChoXacNhan' style='display: inline-block; padding: 10px 20px; background-color: #1a73e8; color: #fff; text-decoration: none; border-radius: 4px; margin: 10px 0;'>Xem Đơn Hàng</a>");
 			bodyBuilder.AppendLine("<p>Nếu bạn có thắc mắc, vui lòng liên hệ với chúng tôi qua email <a href='mailto:support@yourapp.com' style='color: #1a73e8;'>support@yourapp.com</a> hoặc số điện thoại <strong>0123-456-789</strong>.</p>");
 
 			// Footer
@@ -147,6 +150,133 @@ namespace ToHeBE.Models.Auth
 			mailMessage.To.Add(toEmail);
 
 			await smtpClient.SendMailAsync(mailMessage);
+		}
+
+
+
+		/*cấu hình gửi email nhắc nhở thanh toán*/
+		public async Task SendPaymentReminderEmailAsync(string toEmail, Thdb hoaDon, List<Tchitiethdb> chiTietHdb, string tenKhachHang)
+		{
+			try
+			{
+				var smtpClient = new SmtpClient(_configuration["EmailSettings:SmtpServer"])
+			{
+				Port = int.Parse(_configuration["EmailSettings:SmtpPort"]),
+				Credentials = new NetworkCredential(
+				_configuration["EmailSettings:Username"],
+				_configuration["EmailSettings:Password"]
+			),
+				EnableSsl = true
+			};
+			// Use a configuration variable for the image base URL
+			var imageBaseUrl = _configuration["ImageSettings:BaseUrl"] ?? "http://localhost:3000"; // Fallback to localhost:3000 for development
+																								   // Gọi nội bộ API create-payment để lấy link thanh toán
+		/*	var httpClient = new HttpClient();
+			httpClient.BaseAddress = new Uri("https://localhost:7111");
+
+			// Gọi API VnPay
+			var paymentRequest = new
+			{
+				Amount = hoaDon.TongTienHdb,
+				maHdb = hoaDon.MaHdb
+			};
+
+			var paymentResponse = await httpClient.PostAsJsonAsync("/api/VnPay/create-payment", paymentRequest);*/
+
+			var bodyBuilder = new StringBuilder();
+			bodyBuilder.AppendLine("<!DOCTYPE html>");
+			bodyBuilder.AppendLine("<html lang='vi'>");
+			bodyBuilder.AppendLine("<head>");
+			bodyBuilder.AppendLine("<meta charset='UTF-8'>");
+			bodyBuilder.AppendLine("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+			bodyBuilder.AppendLine("<title>Nhắc Nhở Thanh Toán Hóa Đơn</title>");
+			bodyBuilder.AppendLine("</head>");
+			bodyBuilder.AppendLine("<body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>");
+
+			// Header với logo
+			bodyBuilder.AppendLine("<div style='text-align: center; margin-bottom: 20px;'>");
+			bodyBuilder.AppendLine($"<img src='{imageBaseUrl}/assets/images/logo.png' alt='Your App Name' style='max-width: 150px; height: auto;'>");
+			bodyBuilder.AppendLine("<h2 style='color: #e81a1a;'>Nhắc Nhở Thanh Toán Hóa Đơn</h2>");
+			bodyBuilder.AppendLine("</div>");
+
+			// Thông tin đơn hàng
+			bodyBuilder.AppendLine("<div style='background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;'>");
+			bodyBuilder.AppendLine($"<p style='margin: 0;'>Kính gửi <strong>{HttpUtility.HtmlEncode(tenKhachHang)}</strong>,</p>");
+			bodyBuilder.AppendLine("<p style='margin: 10px 0;'>Chúng tôi nhận thấy hóa đơn của bạn chưa được thanh toán. Vui lòng hoàn tất thanh toán để chúng tôi có thể tiếp tục xử lý đơn hàng.</p>");
+			bodyBuilder.AppendLine("<table style='width: 100%; border-collapse: collapse; margin: 10px 0;'>");
+			bodyBuilder.AppendLine($"<tr><td style='padding: 5px; font-weight: bold;'>Mã hóa đơn:</td><td style='padding: 5px;'>{hoaDon.MaHdb}</td></tr>");
+			bodyBuilder.AppendLine($"<tr><td style='padding: 5px; font-weight: bold;'>Ngày lập hóa đơn:</td><td style='padding: 5px;'>{hoaDon.NgayLapHdb:dd/MM/yyyy HH:mm}</td></tr>");
+			bodyBuilder.AppendLine($"<tr><td style='padding: 5px; font-weight: bold;'>Địa chỉ:</td><td style='padding: 5px;'>{HttpUtility.HtmlEncode(hoaDon.DiaChi)}</td></tr>");
+			bodyBuilder.AppendLine($"<tr><td style='padding: 5px; font-weight: bold;'>Số điện thoại:</td><td style='padding: 5px;'>{HttpUtility.HtmlEncode(hoaDon.Sdt)}</td></tr>");
+			bodyBuilder.AppendLine($"<tr><td style='padding: 5px; font-weight: bold;'>Trạng thái thanh toán:</td><td style='padding: 5px;'>{HttpUtility.HtmlEncode(hoaDon.Pttt)}</td></tr>");
+			bodyBuilder.AppendLine("</table>");
+			bodyBuilder.AppendLine("</div>");
+
+			// Chi tiết hóa đơn
+			bodyBuilder.AppendLine("<h3 style='color: #e81a1a; margin-bottom: 10px;'>Chi Tiết Hóa Đơn</h3>");
+			bodyBuilder.AppendLine("<table style='width: 100%; border-collapse: collapse; background-color: #fff; border: 1px solid #e0e0e0;'>");
+			bodyBuilder.AppendLine("<thead>");
+			bodyBuilder.AppendLine("<tr style='background-color: #e81a1a; color: #fff;'>");
+			bodyBuilder.AppendLine("<th style='padding: 12px; text-align: left; border: 1px solid #e0e0e0;'>Sản phẩm</th>");
+			bodyBuilder.AppendLine("<th style='padding: 12px; text-align: center; border: 1px solid #e0e0e0;'>Hình ảnh</th>");
+			bodyBuilder.AppendLine("<th style='padding: 12px; text-align: center; border: 1px solid #e0e0e0;'>Số lượng</th>");
+			bodyBuilder.AppendLine("<th style='padding: 12px; text-align: right; border: 1px solid #e0e0e0;'>Thành tiền</th>");
+			bodyBuilder.AppendLine("</tr>");
+			bodyBuilder.AppendLine("</thead>");
+			bodyBuilder.AppendLine("<tbody>");
+
+			foreach (var chiTiet in chiTietHdb)
+			{
+				var sanPham = chiTiet.MaSanPhamNavigation;
+				var imageUrl = string.IsNullOrEmpty(sanPham.AnhSp)
+					? $"{imageBaseUrl}/assets/images/placeholder.jpg"
+					: $"{imageBaseUrl}/assets/images/{HttpUtility.HtmlEncode(sanPham.AnhSp)}";
+				bodyBuilder.AppendLine("<tr>");
+				bodyBuilder.AppendLine($"<td style='padding: 12px; border: 1px solid #e0e0e0;'>{HttpUtility.HtmlEncode(sanPham.TenSanPham)}</td>");
+				bodyBuilder.AppendLine($"<td style='padding: 12px; border: 1px solid #e0e0e0; text-align: center;'><img src='{imageUrl}' alt='{HttpUtility.HtmlEncode(sanPham.TenSanPham)}' style='max-width: 50px; height: auto; border-radius: 4px;'></td>");
+				bodyBuilder.AppendLine($"<td style='padding: 12px; border: 1px solid #e0e0e0; text-align: center;'>{chiTiet.Sl}</td>");
+				bodyBuilder.AppendLine($"<td style='padding: 12px; border: 1px solid #e0e0e0; text-align: right;'>{chiTiet.ThanhTien} VNĐ</td>");
+				bodyBuilder.AppendLine("</tr>");
+			}
+
+			bodyBuilder.AppendLine("</tbody>");
+			bodyBuilder.AppendLine("</table>");
+
+			// Tổng cộng và phí vận chuyển
+			bodyBuilder.AppendLine("<div style='margin-top: 20px; padding: 15px; background-color: #f9f9f9; border-radius: 8px;'>");
+			//bodyBuilder.AppendLine("<p style='margin: 5px 0;'><strong>Phí vận chuyển:</strong> 10,000 VNĐ</p>");
+			bodyBuilder.AppendLine($"<p style='margin: 5px 0; font-size: 1.2em; color: #e81a1a;'><strong>Tổng cộng:</strong> {(hoaDon.TongTienHdb)} VNĐ</p>");
+			bodyBuilder.AppendLine("</div>");
+
+			// Call-to-action để thanh toán
+			bodyBuilder.AppendLine("<p style='margin-top: 20px;'>Vui lòng hoàn tất thanh toán hóa đơn tại liên kết sau:</p>");
+			bodyBuilder.AppendLine($"<a href='http://localhost:3000/OrderChoxacnhan' style='display: inline-block; padding: 10px 20px; background-color: #e81a1a; color: #fff; text-decoration: none; border-radius: 4px; margin: 10px 0;'>Thanh Toán Ngay</a>");
+			bodyBuilder.AppendLine("<p>Nếu bạn đã thanh toán, vui lòng bỏ qua email này. Nếu có thắc mắc, liên hệ chúng tôi qua email <a href='mailto:support@yourapp.com' style='color: #e81a1a;'>support@yourapp.com</a> hoặc số điện thoại <strong>0123-456-789</strong>.</p>");
+			
+			// Footer
+			bodyBuilder.AppendLine("<div style='text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;'>");
+			bodyBuilder.AppendLine("<p style='color: #777; font-size: 0.9em;'>Trân trọng,<br><strong>Your App Name</strong></p>");
+			bodyBuilder.AppendLine("<p style='color: #777; font-size: 0.9em;'>© 2025 Your App Name. All rights reserved.</p>");
+			bodyBuilder.AppendLine("</div>");
+
+			bodyBuilder.AppendLine("</body>");
+			bodyBuilder.AppendLine("</html>");
+
+			var mailMessage = new MailMessage
+			{
+				From = new MailAddress(_configuration["EmailSettings:SenderEmail"], _configuration["EmailSettings:SenderName"]),
+				Subject = $"Thanh Toán Đơn Hàng #{hoaDon.MaHdb}",
+				Body = bodyBuilder.ToString(),
+				IsBodyHtml = true
+			};
+			mailMessage.To.Add(toEmail);
+
+			await smtpClient.SendMailAsync(mailMessage);
+			}
+			catch (Exception ex)
+			{
+				throw new Exception($"Lỗi khi gửi email: {ex.Message}", ex);
+			}
 		}
 
 	}

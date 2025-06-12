@@ -197,6 +197,7 @@ namespace ToHeBE.Controllers
 			return new JwtSecurityTokenHandler().WriteToken(token);
 		}
 
+
 		// Xác thực JWT token cho khôi phục mật khẩu
 		private string ValidateResetPasswordToken(string token)
 		{
