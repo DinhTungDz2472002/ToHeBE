@@ -355,6 +355,74 @@ namespace ToHeBE.Controllers
 			});
 		}
 
+		[HttpGet("GetCho")]
+		public async Task<IActionResult> Get_Cho_Xac(
+			[FromQuery] int pageNumber = 1,
+			[FromQuery] int pageSize = 10,
+			[FromQuery] int? maLoai = null) // Optional product type filter
+		{
+			if (pageNumber <= 0 || pageSize <= 0)
+				return BadRequest(new { message = "Số trang và kích thước trang phải lớn hơn 0." });
 
+			var query = dbContext.Thdbs
+				.AsNoTracking()
+				.Include(x => x.Tchitiethdbs)
+					.ThenInclude(c => c.MaSanPhamNavigation)
+				.Where(x => x.Status == "Chờ xác nhận")
+				.AsQueryable();
+
+			// Filter by product type (maLoai) if provided
+			if (maLoai.HasValue)
+			{
+				query = query.Where(h => h.Tchitiethdbs
+					.Any(c => c.MaSanPhamNavigation.MaLoai == maLoai.Value));
+			}
+
+			var totalItems = await query.CountAsync();
+			var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+			var hdbs = await query
+				.OrderByDescending(x => x.NgayLapHdb ?? DateTime.MinValue)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync();
+
+			var hdbDto = hdbs.Select(hdb => new HdbDto
+			{
+				MaHdb = hdb.MaHdb,
+				MaKhachHang = hdb.MaKhachHang,
+				NgayLapHdb = hdb.NgayLapHdb,
+				GiamGia = hdb.GiamGia,
+				Pttt = hdb.Pttt,
+				TongTienHdb = hdb.TongTienHdb ?? 0,
+				Status = hdb.Status,
+				TenKhachHang = hdb.TenKhachHang,
+				DiaChi = hdb.DiaChi,
+				Sdt = hdb.Sdt,
+				ChiTietHoaDon = hdb.Tchitiethdbs.Select(c => new ChiTietHdbDto
+				{
+					MaChiTietHdb = c.MaChiTietHdb,
+					MaSanPham = c.MaSanPham,
+					Sl = c.Sl,
+					ThanhTien = c.ThanhTien ?? 0,
+					TenSanPham = c.MaSanPhamNavigation?.TenSanPham,
+					AnhSp = c.MaSanPhamNavigation?.AnhSp,
+					GiaSanPham = c.MaSanPhamNavigation?.GiaSanPham
+				}).ToList()
+			}).ToList();
+
+			if (!hdbDto.Any())
+				return Ok(new { message = "Không có hóa đơn nào", hoaDons = new List<object>() });
+
+			return Ok(new
+			{
+				message = "Lấy danh sách hóa đơn thành công",
+				currentPage = pageNumber,
+				pageSize = pageSize,
+				totalItems = totalItems,
+				totalPages = totalPages,
+				hoaDons = hdbDto
+			});
+		}
 	}
 }
